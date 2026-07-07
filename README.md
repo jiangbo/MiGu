@@ -1,5 +1,7 @@
 # MiGu
 
+[中文说明](README.zh-CN.md)
+
 MiGu is a tiny ECS for Zig.
 
 It keeps the model simple: entities are `u16` ids, components are plain Zig
