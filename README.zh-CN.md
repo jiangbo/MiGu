@@ -203,6 +203,13 @@ const clock = world.getPtr(world.entity, Clock).?;
 clock.hour += 1;
 ```
 
+重置世界时，可以用 `resetKeep` 保留指定组件类型。
+
+```zig
+world.resetKeep(.{ Clock, Inventory });
+world.entity = world.createEntity();
+```
+
 ## 事件
 
 事件是按类型存储的队列，不会自动清空。

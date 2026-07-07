@@ -209,6 +209,13 @@ const clock = world.getPtr(world.entity, Clock).?;
 clock.hour += 1;
 ```
 
+When resetting a world, `resetKeep` can keep selected component stores.
+
+```zig
+world.resetKeep(.{ Clock, Inventory });
+world.entity = world.createEntity();
+```
+
 ## Events
 
 Events are typed queues. They are not cleared automatically.
