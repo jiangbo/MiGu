@@ -55,13 +55,13 @@ test "move entity" {
 
     const entity = world.createEntity();
     world.add(entity, Position{ .x = 10, .y = 20 });
-    world.add(entity, Velocity{ .x = 5 });
+    world.add(entity, Velocity{ .x = 5, .y = -2 });
 
     move(&world, 2);
 
     const position = world.get(entity, Position).?;
     try std.testing.expectEqual(20, position.x);
-    try std.testing.expectEqual(20, position.y);
+    try std.testing.expectEqual(16, position.y);
 }
 ```
 
@@ -223,6 +223,11 @@ world.clearEvent(SoundPlay);
 - `Entity` is `u16`.
 - `createEntity`, `add`, and `addEvent` panic on allocation failure.
 - Use `tryCreateEntity`, `tryAdd`, and `tryAddEvent` when you need errors.
+
+## Acknowledgements
+
+MiGu is heavily inspired by [EnTT](https://github.com/skypjack/entt) and
+[zig-ecs](https://github.com/prime31/zig-ecs). Thanks to both projects.
 
 ## License
 

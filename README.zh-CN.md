@@ -52,13 +52,13 @@ test "move entity" {
 
     const entity = world.createEntity();
     world.add(entity, Position{ .x = 10, .y = 20 });
-    world.add(entity, Velocity{ .x = 5 });
+    world.add(entity, Velocity{ .x = 5, .y = -2 });
 
     move(&world, 2);
 
     const position = world.get(entity, Position).?;
     try std.testing.expectEqual(20, position.x);
-    try std.testing.expectEqual(20, position.y);
+    try std.testing.expectEqual(16, position.y);
 }
 ```
 
@@ -219,6 +219,11 @@ world.clearEvent(SoundPlay);
 - `createEntity`、`add`、`addEvent` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
   `tryAddEvent`。
+
+## 致谢
+
+MiGu 的设计灵感深受 [EnTT](https://github.com/skypjack/entt) 和
+[zig-ecs](https://github.com/prime31/zig-ecs) 影响。感谢这两个项目。
 
 ## 许可证
 
