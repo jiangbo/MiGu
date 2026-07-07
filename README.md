@@ -4,9 +4,8 @@
 
 MiGu is a tiny ECS for Zig.
 
-It keeps the model simple: entities are `u16` ids, components are plain Zig
-types, systems are normal functions, and queries iterate sparse-set component
-storage directly.
+It is designed for small single-threaded games and tools. Entity ids are
+`u16`, so the maximum entity count is limited.
 
 The name comes from MiGu(迷毂), a beast in ShanHaiJing, also known as
 Classic of Mountains and Rivers.
@@ -237,6 +236,15 @@ world.clearEvent(SoundPlay);
 - `Entity` is `u16`.
 - `createEntity`, `add`, and `addEvent` panic on allocation failure.
 - Use `tryCreateEntity`, `tryAdd`, and `tryAddEvent` when you need errors.
+- Component ids are based on Zig types. A type alias is not a new component
+  type.
+
+```zig
+const Name = struct {};
+const PlayerName = Name;
+
+// Name and PlayerName are the same component type.
+```
 
 ## Acknowledgements
 

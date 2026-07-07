@@ -2,8 +2,7 @@
 
 MiGu 是一个小型 Zig ECS。
 
-它保持简单模型：实体是 `u16` 编号，组件是普通 Zig 类型，系统是普通
-函数，查询直接遍历 sparse set 组件存储。
+它面向小型单线程游戏和工具。实体编号是 `u16`，所以最大实体数量有限。
 
 名字来自《山海经》中的迷毂。
 
@@ -232,6 +231,14 @@ world.clearEvent(SoundPlay);
 - `createEntity`、`add`、`addEvent` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
   `tryAddEvent`。
+- 组件 ID 基于 Zig 类型。类型别名不会产生新的组件类型。
+
+```zig
+const Name = struct {};
+const PlayerName = Name;
+
+// Name 和 PlayerName 是同一个组件类型。
+```
 
 ## 致谢
 
