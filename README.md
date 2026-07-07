@@ -8,7 +8,7 @@ It keeps the model simple: entities are `u16` ids, components are plain Zig
 types, systems are normal functions, and queries iterate sparse-set component
 storage directly.
 
-The name comes from MiGu, a beast in ShanHaiJing, also known as
+The name comes from MiGu(迷毂), a beast in ShanHaiJing, also known as
 Classic of Mountains and Rivers.
 
 ## Install
