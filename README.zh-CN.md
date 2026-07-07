@@ -12,7 +12,7 @@ MiGu 是一个小型 Zig ECS。
 在你的项目里拉取 MiGu：
 
 ```sh
-zig fetch --save=migu git+https://github.com/<owner>/MiGu.git
+zig fetch --save=migu git+https://github.com/jiangbo/MiGu.git
 ```
 
 然后在 `build.zig` 里导入模块：
