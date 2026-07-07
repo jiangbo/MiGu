@@ -13,8 +13,13 @@ Classic of Mountains and Rivers.
 
 ## Install
 
-Add MiGu as a dependency in your `build.zig.zon`, then import the module from
-your `build.zig`.
+Fetch MiGu in your project:
+
+```sh
+zig fetch --save=migu git+https://github.com/jiangbo/MiGu.git
+```
+
+Then import the module in `build.zig`:
 
 ```zig
 const migu = b.dependency("migu", .{

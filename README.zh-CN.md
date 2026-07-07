@@ -9,7 +9,13 @@ MiGu 是一个小型 Zig ECS。
 
 ## 安装
 
-把 MiGu 加到项目的 `build.zig.zon`，然后在 `build.zig` 里导入模块。
+在你的项目里拉取 MiGu：
+
+```sh
+zig fetch --save=migu git+https://github.com/<owner>/MiGu.git
+```
+
+然后在 `build.zig` 里导入模块：
 
 ```zig
 const migu = b.dependency("migu", .{
