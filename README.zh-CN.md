@@ -1,18 +1,15 @@
 # MiGu
 
-MiGu is a tiny ECS for Zig.
+MiGu 是一个小型 Zig ECS。
 
-It keeps the model simple: entities are `u16` ids, components are plain Zig
-types, systems are normal functions, and queries iterate sparse-set component
-storage directly.
+它保持简单模型：实体是 `u16` 编号，组件是普通 Zig 类型，系统是普通
+函数，查询直接遍历 sparse set 组件存储。
 
-The name comes from MiGu, a beast in ShanHaiJing, also known as
-Classic of Mountains and Rivers.
+名字来自《山海经》中的迷毂。
 
-## Install
+## 安装
 
-Add MiGu as a dependency in your `build.zig.zon`, then import the module from
-your `build.zig`.
+把 MiGu 加到项目的 `build.zig.zon`，然后在 `build.zig` 里导入模块。
 
 ```zig
 const migu = b.dependency("migu", .{
@@ -23,13 +20,13 @@ const migu = b.dependency("migu", .{
 exe.root_module.addImport("ecs", migu.module("ecs"));
 ```
 
-Then import it in code:
+代码中这样引入：
 
 ```zig
 const ecs = @import("ecs");
 ```
 
-## Basic Example
+## 基础例子
 
 ```zig
 const std = @import("std");
@@ -65,36 +62,36 @@ test "move entity" {
 }
 ```
 
-## Components
+## 组件
 
 ```zig
 const Position = struct { x: f32, y: f32 };
 const Player = struct {};
 ```
 
-Add components:
+添加组件：
 
 ```zig
 world.add(entity, Position{ .x = 1, .y = 2 });
 world.add(entity, Player{});
 ```
 
-Read components:
+读取组件：
 
 ```zig
 const position = world.get(entity, Position).?;
 const position_ptr = world.getPtr(entity, Position).?;
 ```
 
-Remove components:
+删除组件：
 
 ```zig
 world.remove(entity, Player);
 ```
 
-## Queries
+## 查询
 
-Use `query` for entities that have all requested components.
+`query` 查询同时拥有所有指定组件的实体。
 
 ```zig
 var query = world.query(.{ Position, Velocity });
@@ -105,13 +102,13 @@ while (query.next()) |entity| {
 }
 ```
 
-Use `queryNot` to exclude components.
+`queryNot` 用来排除组件。
 
 ```zig
 var query = world.queryNot(.{ Position, Sprite }, .{Hidden});
 ```
 
-Use `queryBy` when iteration order must follow a specific component store.
+需要固定遍历顺序时，使用 `queryBy`。
 
 ```zig
 world.sort(Render, lessThanRender);
@@ -119,7 +116,7 @@ world.sort(Render, lessThanRender);
 var query = world.queryBy(Render, .{ Position, Sprite }, .{Hidden});
 ```
 
-Use `reverse` for destructive passes.
+反向遍历适合删除实体。
 
 ```zig
 var query = world.query(.{ Dead }).reverse();
@@ -128,8 +125,7 @@ while (query.next()) |entity| {
 }
 ```
 
-Use `query.add` to safely add components while iterating. It asserts if the
-new component is part of the current query.
+遍历时用 `query.add` 安全添加组件。如果新组件属于当前查询，会触发断言并暴露错误。
 
 ```zig
 fn markIdle(world: *ecs.World) void {
@@ -144,7 +140,7 @@ fn markIdle(world: *ecs.World) void {
 
 ## Identity
 
-An identity stores one entity for a type, such as the player.
+`Identity` 用来记录某种类型对应的唯一实体，比如玩家。
 
 ```zig
 const Player = struct {};
@@ -163,12 +159,11 @@ const player = world.createIdentity(Player);
 world.add(player, Position{ .x = 10, .y = 20 });
 ```
 
-It does not create a component automatically. It only records the entity id.
+它不会自动创建组件，只记录实体编号。
 
 ## Handle
 
-Use `Entity` directly by default. Use `Handle` only when an entity may be
-destroyed and its id may be reused later.
+默认直接使用 `Entity`。只有实体可能被销毁，并且编号可能被复用时，才使用 `Handle`。
 
 ```zig
 const enemy = world.createEntity();
@@ -183,9 +178,9 @@ if (world.entities.get(handle)) |alive| {
 
 ## Resource
 
-`world.entity` is an optional entity slot. One simple resource pattern is to
-create one entity for global components.
-If you use this pattern, create it right after `World.init`.
+`world.entity` 是一个可选的实体槽位。一种简单的资源写法是创建一个
+实体，用它挂全局组件。
+如果使用这种写法，最好在 `World.init` 后立刻创建它。
 
 ```zig
 const Clock = struct { hour: u8 = 6 };
@@ -202,9 +197,9 @@ const clock = world.getPtr(world.entity, Clock).?;
 clock.hour += 1;
 ```
 
-## Events
+## 事件
 
-Events are typed queues. They are not cleared automatically.
+事件是按类型存储的队列，不会自动清空。
 
 ```zig
 const SoundPlay = struct { id: u8 };
@@ -218,12 +213,13 @@ for (world.getEvent(SoundPlay)) |event| {
 world.clearEvent(SoundPlay);
 ```
 
-## Notes
+## 注意事项
 
-- `Entity` is `u16`.
-- `createEntity`, `add`, and `addEvent` panic on allocation failure.
-- Use `tryCreateEntity`, `tryAdd`, and `tryAddEvent` when you need errors.
+- `Entity` 是 `u16`。
+- `createEntity`、`add`、`addEvent` 遇到分配失败会 panic。
+- 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
+  `tryAddEvent`。
 
-## License
+## 许可证
 
 MIT
