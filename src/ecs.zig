@@ -183,7 +183,7 @@ fn Store(V: type) type {
     };
 }
 
-pub const TypeId = u32;
+pub const TypeId = u64;
 pub const World = struct {
     allocator: Allocator,
     entities: Entities = .{},
@@ -468,5 +468,5 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
 }
 
 pub fn typeId(T: type) TypeId {
-    return comptime std.hash.Fnv1a_32.hash(@typeName(T));
+    return comptime std.hash.Fnv1a_64.hash(@typeName(T));
 }
