@@ -7,7 +7,7 @@ MiGu is a tiny ECS for Zig.
 It is designed for small single-threaded games and tools. Entity ids are
 `u16`, so the maximum entity count is limited.
 
-The name comes from MiGu(迷毂), a beast in ShanHaiJing, also known as
+The name comes from MiGu (迷毂), a plant from ShanHaiJing, also known as
 Classic of Mountains and Rivers.
 
 ## Install
