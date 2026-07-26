@@ -384,7 +384,7 @@ pub const World = struct {
         var minCount: usize = invalid;
         inline for (All, &result.sparse, &result.values) |T, *s, *v| {
             const map = self.getStore(T, T) orelse return .{};
-            s.*, v.* = .{ map.sparse.items, map.values };
+            s.*, v.* = .{ map.sparse.items, @ptrCast(map.values) };
             if (map.len < minCount) {
                 minCount = map.len;
                 result.dense = map.dense[0..map.len];
@@ -406,7 +406,7 @@ pub const World = struct {
 
         inline for (.{By} ++ All, &rs.sparse, &rs.values) |T, *s, *v| {
             const map = self.getStore(T, T) orelse return .{};
-            s.*, v.* = .{ map.sparse.items, map.values };
+            s.*, v.* = .{ map.sparse.items, @ptrCast(map.values) };
         }
         inline for (None, &rs.none) |T, *none| {
             if (self.getStore(T, T)) |s| none.* = s.sparse.items;

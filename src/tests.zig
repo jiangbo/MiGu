@@ -10,6 +10,7 @@ const Dead = struct {};
 const Idle = struct {};
 const Clock = struct { hour: u8 = 6 };
 const Inventory = struct { gold: u32 = 0 };
+const Text = []const u8;
 
 const Render = struct { layer: u8 = 0, depth: f32 = 0 };
 const SoundPlay = struct { id: u8 };
@@ -48,6 +49,25 @@ test "add all and query components" {
     try std.testing.expectEqual(1, query.get(found, Position).x);
     try std.testing.expectEqual(3, query.get(found, Velocity).x);
     try std.testing.expectEqual(null, query.next());
+}
+
+test "query supports slice component" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const entity = world.createEntity();
+    world.add(entity, @as(Text, "hello"));
+
+    var query = world.query(.{Text});
+    const found = query.next().?;
+    try std.testing.expectEqualStrings("hello", query.get(found, Text));
+
+    var queryBy = world.queryBy(Text, .{}, .{});
+    const ordered = queryBy.next().?;
+    try std.testing.expectEqualStrings(
+        "hello",
+        queryBy.get(ordered, Text),
+    );
 }
 
 test "query not excludes component" {
