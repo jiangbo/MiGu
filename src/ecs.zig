@@ -337,8 +337,8 @@ pub const World = struct {
         return &map.values[map.sparse.items[entity]];
     }
 
-    pub fn getGlobal(self: *World, T: type) *T {
-        return self.getPtr(self.entity, T).?;
+    pub fn getGlobal(self: *World, T: type) ?*T {
+        return self.getPtr(self.entity, T);
     }
 
     pub fn add(self: *World, entity: u16, value: anytype) void {

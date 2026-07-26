@@ -230,8 +230,8 @@ test "reset keep preserves selected component stores" {
     world.resetKeep(.{ Clock, Inventory });
     world.entity = world.createEntity();
 
-    try std.testing.expectEqual(9, world.getGlobal(Clock).hour);
-    try std.testing.expectEqual(12, world.getGlobal(Inventory).gold);
+    try std.testing.expectEqual(9, world.getGlobal(Clock).?.hour);
+    try std.testing.expectEqual(12, world.getGlobal(Inventory).?.gold);
     try std.testing.expectEqual(0, world.values(Enemy).len);
 }
 
