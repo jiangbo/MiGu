@@ -275,23 +275,32 @@ pub const World = struct {
         return entity;
     }
 
-    pub fn getIdentity(self: *World, T: type) ?u16 {
+    pub fn getIdentityEntity(self: *World, T: type) ?u16 {
         const map = self.getStore(T, T) orelse return null;
         return if (map.identity == invalid) null else map.identity;
     }
 
+    pub fn getIdentity(self: *World, I: type, T: type) ?T {
+        return if (self.getIdentityPtr(I, T)) |v| v.* else null;
+    }
+
+    pub fn getIdentityPtr(self: *World, I: type, T: ?type) ?*(T orelse I) {
+        const entity = self.getIdentityEntity(I) orelse return null;
+        return self.getPtr(entity, T orelse I);
+    }
+
     pub fn takeIdentity(self: *World, T: type) ?u16 {
-        const entity = self.getIdentity(T);
+        const entity = self.getIdentityEntity(T);
         self.removeIdentity(T);
         return entity;
     }
 
     pub fn isIdentity(self: *World, entity: u16, T: type) bool {
-        return if (self.getIdentity(T)) |e| e == entity else false;
+        return if (self.getIdentityEntity(T)) |e| e == entity else false;
     }
 
     pub fn hasIdentity(self: *World, I: type, T: type) bool {
-        const entity = self.getIdentity(I) orelse return false;
+        const entity = self.getIdentityEntity(I) orelse return false;
         return self.has(entity, T);
     }
 

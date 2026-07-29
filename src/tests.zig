@@ -125,19 +125,24 @@ test "identity stores one entity for type" {
     defer world.deinit();
 
     const player = world.createIdentity(Player);
-    world.add(player, Position{ .x = 5 });
+    world.addAll(player, .{
+        Player{},
+        Position{ .x = 5 },
+    });
 
-    try std.testing.expectEqual(player, world.getIdentity(Player).?);
+    try std.testing.expectEqual(player, world.getIdentityEntity(Player).?);
+    try std.testing.expect(world.getIdentityPtr(Player, null) != null);
+    try std.testing.expectEqual(5, world.getIdentity(Player, Position).?.x);
     try std.testing.expect(world.isIdentity(player, Player));
     try std.testing.expect(world.hasIdentity(Player, Position));
 
     const taken = world.takeIdentity(Player).?;
     try std.testing.expectEqual(player, taken);
-    try std.testing.expectEqual(null, world.getIdentity(Player));
+    try std.testing.expectEqual(null, world.getIdentityEntity(Player));
 
     world.addIdentity(player, Player);
     world.removeIdentity(Player);
-    try std.testing.expectEqual(null, world.getIdentity(Player));
+    try std.testing.expectEqual(null, world.getIdentityEntity(Player));
 }
 
 test "events are stored and cleared by type" {
