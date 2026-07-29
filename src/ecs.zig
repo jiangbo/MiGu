@@ -299,9 +299,8 @@ pub const World = struct {
         return if (self.getIdentityEntity(T)) |e| e == entity else false;
     }
 
-    pub fn hasIdentity(self: *World, I: type, T: type) bool {
-        const entity = self.getIdentityEntity(I) orelse return false;
-        return self.has(entity, T);
+    pub fn hasIdentity(self: *World, T: type) bool {
+        return self.getIdentityEntity(T) != null;
     }
 
     pub fn removeIdentity(self: *World, T: type) void {
