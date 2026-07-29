@@ -280,7 +280,7 @@ pub const World = struct {
         return if (map.identity == invalid) null else map.identity;
     }
 
-    pub fn getIdentity(self: *World, I: type, T: type) ?T {
+    pub fn getIdentity(self: *World, I: type, T: ?type) ?(T orelse I) {
         return if (self.getIdentityPtr(I, T)) |v| v.* else null;
     }
 

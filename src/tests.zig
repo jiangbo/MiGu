@@ -131,6 +131,7 @@ test "identity stores one entity for type" {
     });
 
     try std.testing.expectEqual(player, world.getIdentityEntity(Player).?);
+    try std.testing.expect(world.getIdentity(Player, null) != null);
     try std.testing.expect(world.getIdentityPtr(Player, null) != null);
     try std.testing.expectEqual(5, world.getIdentity(Player, Position).?.x);
     try std.testing.expect(world.isIdentity(player, Player));
