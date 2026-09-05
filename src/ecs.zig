@@ -153,7 +153,8 @@ fn Store(V: type) type {
             self.dense[index] = moved;
             if (self.valueSize == 0) return;
 
-            const sz = if (V == u8) self.valueSize else 1;
+            // 使用 usize 计算字节偏移，避免大组件搬移时溢出。
+            const sz: usize = if (V == u8) self.valueSize else 1;
             const src = self.values[sz * self.len ..];
             @memcpy(self.values[sz * index ..][0..sz], src[0..sz]);
         }
