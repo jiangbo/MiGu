@@ -16,6 +16,10 @@ fn Event(T: type) type {
     return struct { event: T };
 }
 
+fn Resource(T: type) type {
+    return struct { resource: T };
+}
+
 const Entities = struct {
     versions: std.ArrayList(Version) = .empty,
     deleted: std.DynamicBitSetUnmanaged = .{},
@@ -189,7 +193,6 @@ pub const World = struct {
     allocator: Allocator,
     entities: Entities = .{},
     map: std.AutoHashMapUnmanaged(TypeId, Store(u8)) = .empty,
-    entity: u16 = invalid,
 
     pub fn init(allocator: std.mem.Allocator) World {
         comptime std.debug.assert(@sizeOf(Store(u8)) <= 64);
@@ -208,15 +211,15 @@ pub const World = struct {
         self.* = .init(self.allocator);
     }
 
-    pub fn resetKeep(self: *World, Types: anytype) void {
-        self.tryResetKeep(Types) catch @panic("oom");
+    pub fn resetKeepResources(self: *World, Types: anytype) void {
+        self.tryResetKeepResources(Types) catch @panic("oom");
     }
 
-    pub fn tryResetKeep(self: *World, Types: anytype) Error!void {
+    pub fn tryResetKeepResources(self: *World, Types: anytype) Oom!void {
         var new = World.init(self.allocator);
         try new.map.ensureTotalCapacity(new.allocator, Types.len);
         inline for (Types) |T| {
-            if (self.map.fetchRemove(typeId(T))) |r| {
+            if (self.map.fetchRemove(typeId(Resource(T)))) |r| {
                 new.map.putAssumeCapacityNoClobber(r.key, r.value);
             }
         }
@@ -235,6 +238,16 @@ pub const World = struct {
     pub fn tryAddEvent(self: *World, value: anytype) Oom!void {
         var map = try self.tryAssure(Event(@TypeOf(value)), @TypeOf(value));
         try map.appendValue(self.allocator, value);
+    }
+
+    pub fn tryAddResource(self: *World, value: anytype) Oom!void {
+        const T = @TypeOf(value);
+        var map = try self.tryAssure(Resource(T), T);
+        if (map.len == 0) {
+            try map.appendValue(self.allocator, value);
+        } else {
+            map.values[0] = value;
+        }
     }
 
     pub fn tryAdd(self: *World, entity: u16, value: anytype) Oom!void {
@@ -326,6 +339,20 @@ pub const World = struct {
         if (removed) |*r| r.value.deinit(self.allocator);
     }
 
+    pub fn addResource(self: *World, value: anytype) void {
+        self.tryAddResource(value) catch @panic("oom");
+    }
+
+    pub fn getResourcePtr(self: *World, T: type) ?*T {
+        const map = self.getStore(Resource(T), T) orelse return null;
+        return if (map.len == 0) null else &map.values[0];
+    }
+
+    pub fn removeResource(self: *World, T: type) void {
+        var removed = self.map.fetchRemove(typeId(Resource(T)));
+        if (removed) |*r| r.value.deinit(self.allocator);
+    }
+
     fn getStore(self: *World, K: type, V: type) ?*Store(V) {
         const map = self.map.getPtr(typeId(K)) orelse return null;
         return @ptrCast(@alignCast(map));
@@ -344,10 +371,6 @@ pub const World = struct {
         const map = self.getStore(T, T) orelse return null;
         if (!hasEntity(map.sparse.items, entity)) return null;
         return &map.values[map.sparse.items[entity]];
-    }
-
-    pub fn getGlobal(self: *World, T: type) ?*T {
-        return self.getPtr(self.entity, T);
     }
 
     pub fn add(self: *World, entity: u16, value: anytype) void {

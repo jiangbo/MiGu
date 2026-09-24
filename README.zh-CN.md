@@ -183,9 +183,8 @@ if (world.entities.get(handle)) |alive| {
 
 ## Resource
 
-`world.entity` 是一个可选的实体槽位。一种简单的资源写法是创建一个
-实体，用它挂全局组件。
-如果使用这种写法，最好在 `World.init` 后立刻创建它。
+资源是属于 `World` 的单个值，不需要实体。同一个类型的资源和组件
+分别存储，重复添加资源会替换原值。
 
 ```zig
 const Clock = struct { hour: u8 = 6 };
@@ -194,19 +193,18 @@ const Inventory = struct { gold: u32 = 0 };
 var world = ecs.World.init(allocator);
 defer world.deinit();
 
-world.entity = world.createEntity();
-world.add(world.entity, Clock{});
-world.add(world.entity, Inventory{});
+world.addResource(Clock{});
+world.addResource(Inventory{});
 
-const clock = world.getPtr(world.entity, Clock).?;
+const clock = world.getResourcePtr(Clock).?;
 clock.hour += 1;
+world.removeResource(Inventory);
 ```
 
-重置世界时，可以用 `resetKeep` 保留指定组件类型。
+重置世界时，`resetKeepResources` 只保留指定类型的资源，普通组件会清除。
 
 ```zig
-world.resetKeep(.{ Clock, Inventory });
-world.entity = world.createEntity();
+world.resetKeepResources(.{ Clock, Inventory });
 ```
 
 ## 事件
@@ -228,9 +226,9 @@ world.clearEvent(SoundPlay);
 ## 注意事项
 
 - `Entity` 是 `u16`。
-- `createEntity`、`add`、`addEvent` 遇到分配失败会 panic。
+- `createEntity`、`add`、`addEvent`、`addResource` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
-  `tryAddEvent`。
+  `tryAddEvent`、`tryAddResource`。
 - 组件 ID 基于 Zig 类型。类型别名不会产生新的组件类型。
 
 ```zig

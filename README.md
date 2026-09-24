@@ -189,9 +189,9 @@ if (world.entities.get(handle)) |alive| {
 
 ## Resource
 
-`world.entity` is an optional entity slot. One simple resource pattern is to
-create one entity for global components.
-If you use this pattern, create it right after `World.init`.
+A resource is one value owned by a `World`, with no entity. Resources and
+components of the same type are stored separately. Adding a resource again
+replaces its value.
 
 ```zig
 const Clock = struct { hour: u8 = 6 };
@@ -200,19 +200,19 @@ const Inventory = struct { gold: u32 = 0 };
 var world = ecs.World.init(allocator);
 defer world.deinit();
 
-world.entity = world.createEntity();
-world.add(world.entity, Clock{});
-world.add(world.entity, Inventory{});
+world.addResource(Clock{});
+world.addResource(Inventory{});
 
-const clock = world.getPtr(world.entity, Clock).?;
+const clock = world.getResourcePtr(Clock).?;
 clock.hour += 1;
+world.removeResource(Inventory);
 ```
 
-When resetting a world, `resetKeep` can keep selected component stores.
+When resetting a world, `resetKeepResources` keeps resources of the selected
+types. Components are cleared.
 
 ```zig
-world.resetKeep(.{ Clock, Inventory });
-world.entity = world.createEntity();
+world.resetKeepResources(.{ Clock, Inventory });
 ```
 
 ## Events
@@ -234,8 +234,9 @@ world.clearEvent(SoundPlay);
 ## Notes
 
 - `Entity` is `u16`.
-- `createEntity`, `add`, and `addEvent` panic on allocation failure.
-- Use `tryCreateEntity`, `tryAdd`, and `tryAddEvent` when you need errors.
+- `createEntity`, `add`, `addEvent`, and `addResource` panic on allocation failure.
+- Use `tryCreateEntity`, `tryAdd`, `tryAddEvent`, and `tryAddResource` when you
+  need errors.
 - Component ids are based on Zig types. A type alias is not a new component
   type.
 

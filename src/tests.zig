@@ -215,29 +215,50 @@ test "reset clears world" {
     const entity = world.createEntity();
     world.add(entity, Position{});
     world.addEvent(SoundPlay{ .id = 1 });
+    world.addResource(Clock{ .hour = 9 });
 
     world.reset();
 
     try std.testing.expectEqual(0, world.values(Position).len);
     try std.testing.expectEqual(0, world.getEvent(SoundPlay).len);
+    try std.testing.expect(world.getResourcePtr(Clock) == null);
 }
 
-test "reset keep preserves selected component stores" {
+test "resource is separate from component and holds one value" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
 
-    world.entity = world.createEntity();
-    world.add(world.entity, Clock{ .hour = 9 });
-    world.add(world.entity, Inventory{ .gold = 12 });
+    const entity = world.createEntity();
+    world.add(entity, Clock{ .hour = 7 });
+
+    try std.testing.expect(world.getResourcePtr(Clock) == null);
+    world.addResource(Clock{ .hour = 9 });
+    world.addResource(Clock{ .hour = 10 });
+    try std.testing.expectEqual(10, world.getResourcePtr(Clock).?.hour);
+    try std.testing.expectEqual(7, world.get(entity, Clock).?.hour);
+
+    world.removeResource(Clock);
+    try std.testing.expect(world.getResourcePtr(Clock) == null);
+    try std.testing.expectEqual(7, world.get(entity, Clock).?.hour);
+}
+
+test "reset keep resources drops components of the same type" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const clockEntity = world.createEntity();
+    world.add(clockEntity, Clock{ .hour = 7 });
+    world.addResource(Clock{ .hour = 9 });
+    world.addResource(Inventory{ .gold = 12 });
 
     const enemy = world.createEntity();
     world.add(enemy, Enemy{});
 
-    world.resetKeep(.{ Clock, Inventory });
-    world.entity = world.createEntity();
+    world.resetKeepResources(.{ Clock, Inventory });
 
-    try std.testing.expectEqual(9, world.getGlobal(Clock).?.hour);
-    try std.testing.expectEqual(12, world.getGlobal(Inventory).?.gold);
+    try std.testing.expectEqual(9, world.getResourcePtr(Clock).?.hour);
+    try std.testing.expectEqual(12, world.getResourcePtr(Inventory).?.gold);
+    try std.testing.expectEqual(0, world.values(Clock).len);
     try std.testing.expectEqual(0, world.values(Enemy).len);
 }
 
