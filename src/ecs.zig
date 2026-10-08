@@ -22,7 +22,7 @@ fn Resource(T: type) type {
 
 const Entities = struct {
     versions: std.ArrayList(Version) = .empty,
-    deleted: std.DynamicBitSetUnmanaged = .{},
+    deleted: std.bit_set.Dynamic = .{},
     deletedCount: u16 = 0,
 
     fn deinit(self: *Entities, gpa: Allocator) void {
@@ -119,12 +119,12 @@ fn Store(V: type) type {
             self.len += 1;
         }
 
+        // 扩容组件存储，并保存可能变化的内存地址。
         fn growValue(self: *@This(), gpa: Allocator) Oom!void {
             if (@sizeOf(V) == 0) return;
-            var values: std.ArrayList(V) = .{
-                .items = self.values[0..self.len],
-                .capacity = self.valueCap,
-            };
+            var values: std.ArrayList(V) = .empty;
+            values.items = self.values[0..self.len];
+            values.capacity = self.valueCap;
             if (self.valueCap == 0) {
                 try values.ensureTotalCapacityPrecise(gpa, 1);
             } else try values.ensureUnusedCapacity(gpa, 1);
@@ -132,11 +132,11 @@ fn Store(V: type) type {
             self.valueCap = @intCast(values.capacity);
         }
 
+        // 扩容实体存储，并保存可能变化的内存地址。
         fn growDense(self: *@This(), gpa: Allocator) Oom!void {
-            var dense: std.ArrayList(u16) = .{
-                .items = self.dense[0..self.len],
-                .capacity = self.denseCap,
-            };
+            var dense: std.ArrayList(u16) = .empty;
+            dense.items = self.dense[0..self.len];
+            dense.capacity = self.denseCap;
             if (self.denseCap == 0) {
                 try dense.ensureTotalCapacityPrecise(gpa, 1);
             } else try dense.ensureUnusedCapacity(gpa, 1);

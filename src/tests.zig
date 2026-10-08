@@ -32,6 +32,37 @@ test "create entity and add get remove component" {
     try std.testing.expect(!world.has(entity, Position));
 }
 
+// 连续扩容实体、组件和事件存储后，原有数据仍能正确读取。
+test "storage keeps values after growth" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    for (0..128) |i| {
+        const entity = world.createEntity();
+        const value: f32 = @floatFromInt(i);
+        world.add(entity, Position{ .x = value, .y = -value });
+        world.addEvent(SoundPlay{ .id = @intCast(i) });
+    }
+
+    for (0..128) |i| {
+        const position = world.get(@intCast(i), Position).?;
+        const value: f32 = @floatFromInt(i);
+        try std.testing.expectEqual(value, position.x);
+        try std.testing.expectEqual(-value, position.y);
+    }
+
+    var query = world.query(.{Position});
+    var count: usize = 0;
+    while (query.next() != null) count += 1;
+    try std.testing.expectEqual(128, count);
+
+    const events = world.getEvent(SoundPlay);
+    try std.testing.expectEqual(128, events.len);
+    for (events, 0..) |event, i| {
+        try std.testing.expectEqual(@as(u8, @intCast(i)), event.id);
+    }
+}
+
 test "add all and query components" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();

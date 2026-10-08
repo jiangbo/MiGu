@@ -4,6 +4,9 @@
 
 MiGu is a tiny ECS for Zig.
 
+Requires Zig 0.17.0 or newer. Run tests with `zig build test` or
+`zig build test -Doptimize=safe`.
+
 It is designed for small single-threaded games and tools. Entity ids are
 `u16`, so the maximum entity count is limited.
 
