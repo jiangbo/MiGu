@@ -12,12 +12,17 @@ fn hasEntity(slice: []const u16, entity: u16) bool {
 pub const Version = u16;
 pub const Handle = struct { entity: u16, version: Version };
 
+const hash = std.hash.Fnv1a_64.hash;
 fn Event(T: type) type {
-    return struct { event: T };
+    return struct {
+        pub const cid = hash(std.fmt.comptimePrint("e{d}", .{typeId(T)}));
+    };
 }
 
 fn Resource(T: type) type {
-    return struct { resource: T };
+    return struct {
+        pub const cid = hash(std.fmt.comptimePrint("r{d}", .{typeId(T)}));
+    };
 }
 
 const Entities = struct {
@@ -504,5 +509,11 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
 }
 
 pub fn typeId(T: type) TypeId {
+    switch (@typeInfo(T)) {
+        .@"struct", .@"union", .@"enum", .@"opaque" => {
+            if (@hasDecl(T, "cid")) return T.cid;
+        },
+        else => {},
+    }
     return comptime std.hash.Fnv1a_64.hash(@typeName(T));
 }

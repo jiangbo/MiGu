@@ -15,6 +15,32 @@ const Text = []const u8;
 const Render = struct { layer: u8 = 0, depth: f32 = 0 };
 const SoundPlay = struct { id: u8 };
 
+test "explicit component id and separate resource and event stores" {
+    const Value = struct {
+        pub const cid: ecs.TypeId = 1001;
+        value: u32,
+    };
+
+    try std.testing.expectEqual(@as(ecs.TypeId, 1001), ecs.typeId(Value));
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const entity = world.createEntity();
+    world.add(entity, Value{ .value = 10 });
+    world.addResource(Value{ .value = 20 });
+    world.addEvent(Value{ .value = 30 });
+
+    try std.testing.expectEqual(10, world.get(entity, Value).?.value);
+    try std.testing.expectEqual(20, world.getResourcePtr(Value).?.value);
+    const events = world.getEvent(Value);
+    try std.testing.expectEqual(1, events.len);
+    try std.testing.expectEqual(30, events[0].value);
+
+    world.removeEvent(Value);
+    world.removeResource(Value);
+    try std.testing.expectEqual(10, world.get(entity, Value).?.value);
+}
+
 test "create entity and add get remove component" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();

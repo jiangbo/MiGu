@@ -101,6 +101,21 @@ Remove components:
 world.remove(entity, Player);
 ```
 
+## Component IDs
+
+IDs are assigned automatically. To use a fixed ID, declare `cid` in the type:
+
+```zig
+const Position = struct {
+    pub const cid: ecs.TypeId = 1001;
+
+    x: f32,
+    y: f32,
+};
+```
+
+Use a unique `cid` for each type and keep it when renaming or moving the type.
+
 ## Queries
 
 Use `query` for entities that have all requested components.
@@ -240,8 +255,7 @@ world.clearEvent(SoundPlay);
 - `createEntity`, `add`, `addEvent`, and `addResource` panic on allocation failure.
 - Use `tryCreateEntity`, `tryAdd`, `tryAddEvent`, and `tryAddResource` when you
   need errors.
-- Component ids are based on Zig types. A type alias is not a new component
-  type.
+- A type alias is not a new component type.
 
 ```zig
 const Name = struct {};

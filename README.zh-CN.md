@@ -97,6 +97,21 @@ const position_ptr = world.getPtr(entity, Position).?;
 world.remove(entity, Player);
 ```
 
+## 组件 ID
+
+默认自动生成 ID，如果想固定 ID，可以在类型内声明 `cid`：
+
+```zig
+const Position = struct {
+    pub const cid: ecs.TypeId = 1001;
+
+    x: f32,
+    y: f32,
+};
+```
+
+不同类型使用不同的 `cid`，改名或移动类型时保留原值。
+
 ## 查询
 
 `query` 查询同时拥有所有指定组件的实体。
@@ -232,7 +247,7 @@ world.clearEvent(SoundPlay);
 - `createEntity`、`add`、`addEvent`、`addResource` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
   `tryAddEvent`、`tryAddResource`。
-- 组件 ID 基于 Zig 类型。类型别名不会产生新的组件类型。
+- 类型别名不会产生新的组件类型。
 
 ```zig
 const Name = struct {};
