@@ -194,6 +194,83 @@ fn Store(V: type) type {
 }
 
 pub const TypeId = u64;
+
+pub fn save(world: *const World, writer: *std.Io.Writer) !void {
+    const entities = &world.entities;
+    try writer.writeInt(usize, entities.versions.items.len, .little);
+    try writer.writeAll(std.mem.sliceAsBytes(entities.versions.items));
+    try writer.writeInt(u16, entities.deletedCount, .little);
+    if (entities.deletedCount != 0) {
+        const masks = entities.deleted.masks - 1;
+        try writer.writeInt(usize, masks[0], .little);
+        try writer.writeAll(std.mem.sliceAsBytes(masks[0..masks[0]]));
+    }
+
+    try writer.writeInt(u32, world.map.count(), .little);
+    var iterator = world.map.iterator();
+    while (iterator.next()) |entry| {
+        const store = entry.value_ptr;
+        try writer.writeInt(TypeId, entry.key_ptr.*, .little);
+        try writer.writeInt(u16, store.len, .little);
+        try writer.writeInt(u16, store.identity, .little);
+        try writer.writeInt(u16, store.valueSize, .little);
+        try writer.writeInt(u8, @backingInt(store.alignment), .little);
+        const count: u16 = if (store.denseCap == 0) 0 else store.len;
+        try writer.writeInt(usize, count, .little);
+        try writer.writeAll(std.mem.sliceAsBytes(store.dense[0..count]));
+        const size = @as(usize, store.len) * store.valueSize;
+        try writer.writeInt(usize, size, .little);
+        try writer.writeAll(store.values[0..size]);
+    }
+}
+
+pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
+    var world = World.init(gpa);
+    errdefer world.deinit();
+
+    const entities = &world.entities;
+    try entities.versions.resize(gpa, try reader.takeInt(usize, .little));
+    try reader.readSliceAll(std.mem.sliceAsBytes(entities.versions.items));
+    entities.deletedCount = try reader.takeInt(u16, .little);
+    const bits = entities.versions.items.len;
+    if (entities.deletedCount != 0) {
+        const count = try reader.takeInt(usize, .little);
+        const masks = try gpa.alloc(usize, count);
+        masks[0] = count;
+        entities.deleted = .{ .bit_length = bits, .masks = masks.ptr + 1 };
+        try reader.readSliceAll(std.mem.sliceAsBytes(masks));
+    } else try entities.deleted.resize(gpa, bits, false);
+
+    for (0..try reader.takeInt(u32, .little)) |_| {
+        const id = try reader.takeInt(TypeId, .little);
+        const store = (try world.map.getOrPut(gpa, id)).value_ptr;
+        store.* = .{};
+        store.len = try reader.takeInt(u16, .little);
+        store.identity = try reader.takeInt(u16, .little);
+        store.valueSize = try reader.takeInt(u16, .little);
+        const alignment = try reader.takeInt(u8, .little);
+        store.alignment = @fromBackingInt(@intCast(alignment));
+
+        const dense = try gpa.alloc(u16, try reader.takeInt(usize, .little));
+        store.dense, store.denseCap = .{ dense.ptr, @intCast(dense.len) };
+        try reader.readSliceAll(std.mem.sliceAsBytes(dense));
+        if (dense.len != 0) {
+            const count = @as(usize, std.mem.max(u16, dense)) + 1;
+            try store.sparse.appendNTimes(gpa, invalid, count);
+            for (dense, 0..) |e, i| store.sparse.items[e] = @intCast(i);
+        }
+
+        const size = try reader.takeInt(usize, .little);
+        if (store.valueSize == 0) store.valueCap = invalid;
+        if (size == 0) continue;
+        store.values = gpa.rawAlloc(size, store.alignment, //
+            @returnAddress()) orelse return error.OutOfMemory;
+        store.valueCap = store.len;
+        try reader.readSliceAll(store.values[0..size]);
+    }
+    return world;
+}
+
 pub const World = struct {
     allocator: Allocator,
     entities: Entities = .{},
