@@ -495,7 +495,7 @@ pub const World = struct {
         comptime std.debug.assert(All.len > 0);
 
         var result: Query(All, None) = .{};
-        var minCount: usize = invalid;
+        var minCount: usize = std.math.maxInt(usize);
         inline for (All, &result.sparse, &result.values) |T, *s, *v| {
             const map = self.getStore(T, .component) orelse return .{};
             s.*, v.* = .{ map.sparse.items, @ptrCast(map.values) };
