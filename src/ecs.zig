@@ -65,7 +65,7 @@ const Entities = struct {
     }
 };
 
-fn Store(V: type) type {
+fn Store(V: type, comptime kind: Kind) type {
     return struct {
         sparse: std.ArrayList(u16) = .empty,
         dense: [*]u16 = std.ArrayList(u16).empty.items.ptr,
@@ -113,13 +113,13 @@ fn Store(V: type) type {
             self.len += 1;
         }
 
-        // 扩容组件存储，并保存可能变化的内存地址。
+        // 扩容值存储，并保存可能变化的内存地址。
         fn growValue(self: *@This(), gpa: Allocator) Oom!void {
             if (@sizeOf(V) == 0) return;
             var values: std.ArrayList(V) = .empty;
             values.items = self.values[0..self.len];
             values.capacity = self.valueCap;
-            if (self.valueCap == 0) {
+            if (kind == .resource) {
                 try values.ensureTotalCapacityPrecise(gpa, 1);
             } else try values.ensureUnusedCapacity(gpa, 1);
             self.values = values.items.ptr;
@@ -131,9 +131,7 @@ fn Store(V: type) type {
             var dense: std.ArrayList(u16) = .empty;
             dense.items = self.dense[0..self.len];
             dense.capacity = self.denseCap;
-            if (self.denseCap == 0) {
-                try dense.ensureTotalCapacityPrecise(gpa, 1);
-            } else try dense.ensureUnusedCapacity(gpa, 1);
+            try dense.ensureUnusedCapacity(gpa, 1);
             self.dense = dense.items.ptr;
             self.denseCap = @intCast(dense.capacity);
         }
@@ -263,7 +261,7 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
 pub const World = struct {
     allocator: Allocator,
     entities: Entities = .{},
-    map: std.AutoHashMapUnmanaged(TypeId, Store(u8)) = .empty,
+    map: std.AutoHashMapUnmanaged(TypeId, Store(u8, .component)) = .empty,
 
     fn id(T: type, comptime kind: Kind) TypeId {
         const hash = std.hash.Fnv1a_64.hash;
@@ -275,7 +273,7 @@ pub const World = struct {
     }
 
     pub fn init(allocator: std.mem.Allocator) World {
-        comptime std.debug.assert(@sizeOf(Store(u8)) <= 64);
+        comptime std.debug.assert(@sizeOf(Store(u8, .component)) <= 64);
         return .{ .allocator = allocator };
     }
 
@@ -335,9 +333,9 @@ pub const World = struct {
         try map.add(self.allocator, entity, value);
     }
 
-    fn tryAssure(self: *World, T: type, comptime kind: Kind) Oom!*Store(T) {
-        const result = try self.map.getOrPut(self.allocator, id(T, kind));
-        const map: *Store(T) = @ptrCast(@alignCast(result.value_ptr));
+    fn tryAssure(self: *World, T: type, comptime k: Kind) Oom!*Store(T, k) {
+        const result = try self.map.getOrPut(self.allocator, id(T, k));
+        const map: *Store(T, k) = @ptrCast(@alignCast(result.value_ptr));
         if (!result.found_existing) map.* = .{};
         return map;
     }
@@ -433,7 +431,7 @@ pub const World = struct {
         if (removed) |*r| r.value.deinit(self.allocator);
     }
 
-    fn getStore(self: *World, T: type, comptime kind: Kind) ?*Store(T) {
+    fn getStore(self: *World, T: type, comptime kind: Kind) ?*Store(T, kind) {
         const map = self.map.getPtr(id(T, kind)) orelse return null;
         return @ptrCast(@alignCast(map));
     }
