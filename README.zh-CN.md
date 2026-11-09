@@ -247,7 +247,7 @@ world.clearEvent(SoundPlay);
 
 ## ID 冲突
 
-Debug 构建会在编译时检查存储 ID 冲突，测试构建跳过检查。
+Debug 构建会在编译时检查存储 ID 冲突。
 
 要定位冲突的存储 ID，在根文件配置 `migu_options`，
 然后使用 Debug 模式重新编译：

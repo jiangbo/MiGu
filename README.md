@@ -255,7 +255,7 @@ world.clearEvent(SoundPlay);
 
 ## ID Conflict
 
-Debug builds detect store ID conflicts at compile time, except in tests.
+Debug builds detect store ID conflicts at compile time.
 
 To find the types behind a conflicting store ID, set `migu_options`
 in your root file and compile again in Debug mode:

@@ -26,7 +26,10 @@ const Entities = struct {
     }
 
     pub fn create(self: *Entities, gpa: Allocator) EntityError!u16 {
-        if (self.deleted.pop()) |entity| return entity;
+        if (self.deleted.pop()) |entity| {
+            self.versions.items[entity] +%= 1;
+            return entity;
+        }
 
         if (self.versions.items.len == invalid) return error.MaxEntity;
         const count = self.versions.items.len + 1;
@@ -42,20 +45,21 @@ const Entities = struct {
     }
 
     fn destroy(self: *Entities, entity: u16) void {
-        const found = std.mem.indexOfScalar(u16, self.deleted.items, entity);
-        std.debug.assert(found == null);
+        std.debug.assert(self.versions.items[entity] % 2 == 0);
         self.versions.items[entity] +%= 1;
         self.deleted.appendAssumeCapacity(entity);
     }
 
     pub fn isAlive(self: *const Entities, id: Handle) bool {
         return id.entity < self.versions.items.len and
+            id.version % 2 == 0 and
             self.versions.items[id.entity] == id.version;
     }
 
     pub fn to(self: *const Entities, entity: u16) ?Handle {
         if (entity >= self.versions.items.len) return null;
         const version = self.versions.items[entity];
+        std.debug.assert(version % 2 == 0);
         return .{ .entity = entity, .version = version };
     }
 
@@ -264,7 +268,7 @@ pub const World = struct {
             .resource => hash(std.fmt.comptimePrint("r{d}", .{typeId(T)})),
         };
         const builtin = @import("builtin");
-        if (builtin.is_test or builtin.mode != .debug) return value;
+        if (builtin.mode != .debug) return value;
         _ = struct {
             const Type = T;
             const category = kind;
@@ -327,12 +331,14 @@ pub const World = struct {
     }
 
     pub fn tryAddEvent(self: *World, value: anytype) EventError!void {
+        if (@TypeOf(value) == type) @compileError("use T{} instead of T");
         var map = try self.tryAssure(@TypeOf(value), .event);
         if (map.len == invalid) return error.MaxEvent;
         try map.appendValue(self.allocator, value);
     }
 
     pub fn tryAddResource(self: *World, value: anytype) Oom!void {
+        if (@TypeOf(value) == type) @compileError("use T{} instead of T");
         const T = @TypeOf(value);
         var map = try self.tryAssure(T, .resource);
         if (map.len == 0) {
