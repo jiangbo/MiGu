@@ -3,7 +3,8 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 pub const Oom = Allocator.Error;
-pub const Error = Oom || error{MaxEntity};
+pub const EntityError = Oom || error{MaxEntity};
+pub const EventError = Oom || error{MaxEvent};
 pub const Entity = u16;
 const invalid = std.math.maxInt(u16);
 fn hasEntity(slice: []const u16, entity: u16) bool {
@@ -24,7 +25,7 @@ const Entities = struct {
         self.deleted.deinit(gpa);
     }
 
-    pub fn create(self: *Entities, gpa: Allocator) Error!u16 {
+    pub fn create(self: *Entities, gpa: Allocator) EntityError!u16 {
         if (self.deletedCount > 0) {
             self.deletedCount -= 1;
             return @intCast(self.deleted.toggleFirstSet().?);
@@ -301,7 +302,7 @@ pub const World = struct {
         self.* = new;
     }
 
-    pub fn tryCreateEntity(self: *World) Error!u16 {
+    pub fn tryCreateEntity(self: *World) EntityError!u16 {
         return self.entities.create(self.allocator);
     }
 
@@ -309,8 +310,9 @@ pub const World = struct {
         (try self.tryAssure(T, .component)).identity = entity;
     }
 
-    pub fn tryAddEvent(self: *World, value: anytype) Oom!void {
+    pub fn tryAddEvent(self: *World, value: anytype) EventError!void {
         var map = try self.tryAssure(@TypeOf(value), .event);
+        if (map.len == invalid) return error.MaxEvent;
         try map.appendValue(self.allocator, value);
     }
 
@@ -396,7 +398,10 @@ pub const World = struct {
     }
 
     pub fn addEvent(self: *World, value: anytype) void {
-        self.tryAddEvent(value) catch @panic("oom");
+        self.tryAddEvent(value) catch |err| switch (err) {
+            error.OutOfMemory => @panic("oom"),
+            error.MaxEvent => @panic("ecs max event"),
+        };
     }
 
     pub fn getEvent(self: *World, T: type) []T {

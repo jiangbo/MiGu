@@ -252,6 +252,7 @@ world.clearEvent(SoundPlay);
 ## Notes
 
 - `Entity` is `u16`.
+- Each event type holds up to 65535 events.
 - `createEntity`, `add`, `addEvent`, and `addResource` panic on allocation failure.
 - Use `tryCreateEntity`, `tryAdd`, `tryAddEvent`, and `tryAddResource` when you
   need errors.

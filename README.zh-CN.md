@@ -244,6 +244,7 @@ world.clearEvent(SoundPlay);
 ## 注意事项
 
 - `Entity` 是 `u16`。
+- 每种事件最多保存 65535 条。
 - `createEntity`、`add`、`addEvent`、`addResource` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
   `tryAddEvent`、`tryAddResource`。
