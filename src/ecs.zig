@@ -70,8 +70,8 @@ const Entities = struct {
 fn Store(V: type, comptime kind: Kind) type {
     return struct {
         sparse: []u16 = &.{},
-        dense: [*]u16 = std.ArrayList(u16).empty.items.ptr,
-        values: [*]V = std.ArrayList(V).empty.items.ptr,
+        dense: [*]u16 = @ptrFromInt(@alignOf(u16)),
+        values: [*]V = @ptrFromInt(@alignOf(V)),
         len: u16 = 0,
         denseCap: u32 = 0,
         valueCap: u32 = if (@sizeOf(V) == 0) invalid else 0,
@@ -239,6 +239,7 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
         store.valueSize = try reader.takeInt(u16, .little);
         const alignment = try reader.takeInt(u8, .little);
         store.alignment = @fromBackingInt(@intCast(alignment));
+        store.values = @ptrFromInt(store.alignment.toByteUnits());
 
         const dense = try gpa.alloc(u16, try reader.takeInt(usize, .little));
         store.dense, store.denseCap = .{ dense.ptr, @intCast(dense.len) };
