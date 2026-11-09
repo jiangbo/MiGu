@@ -575,6 +575,9 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
             blk: while (self.index < self.dense.len) {
                 const entity = self.dense[self.index];
                 if (self.reversed) self.index -%= 1 else self.index += 1;
+                for (self.none) |sparse| {
+                    if (hasEntity(sparse, entity)) continue :blk;
+                }
                 var row: Row = .{ .entity = entity };
                 inline for (All, 0..) |T, i| {
                     const sparse = self.sparse[i];
@@ -582,9 +585,6 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
                     if (sparse[entity] == invalid) continue :blk;
                     const items: [*]T = @ptrCast(@alignCast(self.values[i]));
                     row.values[i] = @ptrCast(&items[sparse[entity]]);
-                }
-                for (self.none) |sparse| {
-                    if (hasEntity(sparse, entity)) continue :blk;
                 }
                 return row;
             } else return null;
