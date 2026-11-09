@@ -2,6 +2,9 @@
 
 MiGu 是一个小型 Zig ECS。
 
+> [!WARNING]
+> 功能开发中，不保证 API 稳定性。
+
 需要 Zig 0.17.1 或更新版本。使用 `zig build test` 或
 `zig build test -Doptimize=safe` 运行测试。
 

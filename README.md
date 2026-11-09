@@ -4,6 +4,9 @@
 
 MiGu is a tiny ECS for Zig.
 
+> [!WARNING]
+> Under development. API stability is not guaranteed.
+
 Requires Zig 0.17.1 or newer. Run tests with `zig build test` or
 `zig build test -Doptimize=safe`.
 
@@ -74,7 +77,7 @@ test "move entity" {
 }
 ```
 
-## Components
+## Component
 
 ```zig
 const Position = struct { x: f32, y: f32 };
@@ -101,7 +104,7 @@ Remove components:
 world.remove(entity, Player);
 ```
 
-## Component IDs
+## Component ID
 
 IDs are assigned automatically. To use a fixed ID, declare `cid` in the type:
 
@@ -116,7 +119,7 @@ const Position = struct {
 
 Use a unique `cid` for each type and keep it when renaming or moving the type.
 
-## Queries
+## Query
 
 Use `query` for entities that have all requested components.
 
@@ -234,7 +237,7 @@ types. Components are cleared.
 world.resetKeepResources(.{ Clock, Inventory });
 ```
 
-## Events
+## Event
 
 Events are typed queues. They are not cleared automatically.
 
@@ -250,7 +253,7 @@ for (world.getEvent(SoundPlay)) |event| {
 world.clearEvent(SoundPlay);
 ```
 
-## ID Conflicts
+## ID Conflict
 
 Debug builds detect store ID conflicts at compile time, except in tests.
 

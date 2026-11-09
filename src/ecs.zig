@@ -352,6 +352,7 @@ pub const World = struct {
     }
 
     pub fn tryAdd(self: *World, entity: u16, value: anytype) Oom!void {
+        if (@TypeOf(value) == type) @compileError("use T{} instead of T");
         var map = try self.tryAssure(@TypeOf(value), .component);
         try map.add(self.allocator, entity, value);
     }
