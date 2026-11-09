@@ -571,13 +571,19 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
 
         pub fn next(self: *@This()) ?Row {
             blk: while (self.index < self.dense.len) {
-                const entity = self.dense[self.index];
+                const index = self.index;
+                const entity = self.dense[index];
                 if (self.reversed) self.index -%= 1 else self.index += 1;
                 for (self.none) |sparse| {
                     if (hasEntity(sparse, entity)) continue :blk;
                 }
                 var row: Row = .{ .entity = entity };
                 inline for (All, 0..) |T, i| {
+                    if (comptime All.len == 1 and None.len == 0) {
+                        const items: [*]T = @ptrCast(@alignCast(self.values[i]));
+                        row.values[i] = @ptrCast(&items[index]);
+                        continue;
+                    }
                     const sparse = self.sparse[i];
                     if (entity >= sparse.len) continue :blk;
                     if (sparse[entity] == invalid) continue :blk;
