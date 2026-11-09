@@ -578,12 +578,13 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
                     if (hasEntity(sparse, entity)) continue :blk;
                 }
                 var row: Row = .{ .entity = entity };
+                if (comptime All.len == 1 and None.len == 0) {
+                    const value = self.values[0];
+                    const items: [*]All[0] = @ptrCast(@alignCast(value));
+                    row.values[0] = @ptrCast(&items[index]);
+                    return row;
+                }
                 inline for (All, 0..) |T, i| {
-                    if (comptime All.len == 1 and None.len == 0) {
-                        const items: [*]T = @ptrCast(@alignCast(self.values[i]));
-                        row.values[i] = @ptrCast(&items[index]);
-                        continue;
-                    }
                     const sparse = self.sparse[i];
                     if (entity >= sparse.len) continue :blk;
                     if (sparse[entity] == invalid) continue :blk;
