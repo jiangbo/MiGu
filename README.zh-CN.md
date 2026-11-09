@@ -45,9 +45,9 @@ const Velocity = struct { x: f32 = 0, y: f32 = 0 };
 
 fn move(world: *ecs.World, delta: f32) void {
     var query = world.query(.{ Position, Velocity });
-    while (query.next()) |entity| {
-        const velocity = query.get(entity, Velocity);
-        const position = query.getPtr(entity, Position);
+    while (query.next()) |row| {
+        const velocity = row.get(Velocity);
+        const position = row.getPtr(Position);
 
         position.x += velocity.x * delta;
         position.y += velocity.y * delta;
@@ -118,9 +118,9 @@ const Position = struct {
 
 ```zig
 var query = world.query(.{ Position, Velocity });
-while (query.next()) |entity| {
-    const position = query.getPtr(entity, Position);
-    const velocity = query.get(entity, Velocity);
+while (query.next()) |row| {
+    const position = row.getPtr(Position);
+    const velocity = row.get(Velocity);
     _ = .{ position, velocity };
 }
 ```
@@ -143,8 +143,8 @@ var query = world.queryBy(Render, .{ Position, Sprite }, .{Hidden});
 
 ```zig
 var query = world.query(.{ Dead }).reverse();
-while (query.next()) |entity| {
-    world.destroyEntity(entity);
+while (query.next()) |row| {
+    world.destroyEntity(row.entity);
 }
 ```
 
@@ -153,9 +153,9 @@ while (query.next()) |entity| {
 ```zig
 fn markIdle(world: *ecs.World) void {
     var query = world.query(.{ Position, Velocity });
-    while (query.next()) |entity| {
-        if (query.get(entity, Velocity).x == 0) {
-            query.add(world, entity, Idle{});
+    while (query.next()) |row| {
+        if (row.get(Velocity).x == 0) {
+            query.add(world, row.entity, Idle{});
         }
     }
 }
@@ -258,7 +258,7 @@ pub const migu_options: ecs.Options = .{ .debug_id = 7 };
 
 ## 注意事项
 
-- `Entity` 是 `u16`。
+- `Entity` 是 `u16`，最多支持 65535 个实体。
 - 每种事件最多保存 65535 条。
 - `createEntity`、`add`、`addEvent`、`addResource` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、

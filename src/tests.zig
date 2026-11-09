@@ -102,9 +102,9 @@ test "add all and query components" {
     var query = world.query(.{ Position, Velocity });
     const found = query.next().?;
 
-    try std.testing.expectEqual(entity, found);
-    try std.testing.expectEqual(1, query.get(found, Position).x);
-    try std.testing.expectEqual(3, query.get(found, Velocity).x);
+    try std.testing.expectEqual(entity, found.entity);
+    try std.testing.expectEqual(1, found.get(Position).x);
+    try std.testing.expectEqual(3, found.get(Velocity).x);
     try std.testing.expectEqual(null, query.next());
 }
 
@@ -117,14 +117,11 @@ test "query supports slice component" {
 
     var query = world.query(.{Text});
     const found = query.next().?;
-    try std.testing.expectEqualStrings("hello", query.get(found, Text));
+    try std.testing.expectEqualStrings("hello", found.get(Text));
 
     var queryBy = world.queryBy(Text, .{}, .{});
     const ordered = queryBy.next().?;
-    try std.testing.expectEqualStrings(
-        "hello",
-        queryBy.get(ordered, Text),
-    );
+    try std.testing.expectEqualStrings("hello", ordered.get(Text));
 }
 
 test "query not excludes component" {
@@ -139,7 +136,7 @@ test "query not excludes component" {
     world.add(hidden, Hidden{});
 
     var query = world.queryNot(.{Position}, .{Hidden});
-    try std.testing.expectEqual(visible, query.next().?);
+    try std.testing.expectEqual(visible, query.next().?.entity);
     try std.testing.expectEqual(null, query.next());
 }
 
@@ -153,9 +150,9 @@ test "query add permits unrelated component" {
 
     var query = world.query(.{ Position, Velocity });
     const found = query.next().?;
-    query.add(&world, found, Idle{});
+    query.add(&world, found.entity, Idle{});
 
-    try std.testing.expect(world.has(found, Idle));
+    try std.testing.expect(world.has(found.entity, Idle));
 }
 
 test "reverse query can destroy matching entities" {
@@ -169,8 +166,8 @@ test "reverse query can destroy matching entities" {
     world.add(second, Dead{});
 
     var query = world.query(.{Dead}).reverse();
-    while (query.next()) |entity| {
-        world.destroyEntity(entity);
+    while (query.next()) |row| {
+        world.destroyEntity(row.entity);
     }
 
     try std.testing.expect(!world.has(first, Dead));
@@ -334,8 +331,8 @@ test "sort and query by component order" {
     world.sort(Render, lessThanRender);
 
     var query = world.queryBy(Render, .{Position}, .{});
-    try std.testing.expectEqual(back, query.next().?);
-    try std.testing.expectEqual(front, query.next().?);
+    try std.testing.expectEqual(back, query.next().?.entity);
+    try std.testing.expectEqual(front, query.next().?.entity);
     try std.testing.expectEqual(null, query.next());
 }
 

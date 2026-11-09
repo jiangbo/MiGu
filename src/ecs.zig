@@ -377,7 +377,7 @@ pub const World = struct {
 
     pub fn destroyEntities(self: *World, T: type) void {
         var toDestroy = self.query(.{T}).reverse();
-        while (toDestroy.next()) |entity| self.destroyEntity(entity);
+        while (toDestroy.next()) |row| self.destroyEntity(row.entity);
     }
 
     pub fn addIdentity(self: *World, entity: u16, T: type) void {
@@ -571,17 +571,22 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
             return query;
         }
 
-        pub fn next(self: *@This()) ?u16 {
+        pub fn next(self: *@This()) ?Row {
             blk: while (self.index < self.dense.len) {
                 const entity = self.dense[self.index];
                 if (self.reversed) self.index -%= 1 else self.index += 1;
-                for (self.sparse) |sparse| {
-                    if (!hasEntity(sparse, entity)) continue :blk;
+                var row: Row = .{ .entity = entity };
+                inline for (All, 0..) |T, i| {
+                    const sparse = self.sparse[i];
+                    if (entity >= sparse.len) continue :blk;
+                    if (sparse[entity] == invalid) continue :blk;
+                    const items: [*]T = @ptrCast(@alignCast(self.values[i]));
+                    row.values[i] = @ptrCast(&items[sparse[entity]]);
                 }
                 for (self.none) |sparse| {
                     if (hasEntity(sparse, entity)) continue :blk;
                 }
-                return entity;
+                return row;
             } else return null;
         }
 
@@ -593,17 +598,21 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
             world.add(e, v);
         }
 
-        pub fn get(self: *@This(), entity: u16, T: type) T {
-            return self.getPtr(entity, T).*;
-        }
+        pub const Row = struct {
+            entity: Entity,
+            values: [All.len]*anyopaque = undefined,
 
-        pub fn getPtr(self: *@This(), entity: u16, T: type) *T {
-            const i = blk: inline for (All, 0..) |Comp, i| {
-                if (Comp == T) break :blk i;
-            } else @compileError(T ++ " is not in query type");
-            const values: [*]T = @ptrCast(@alignCast(self.values[i]));
-            return &values[self.sparse[i][entity]];
-        }
+            pub fn get(self: @This(), T: type) T {
+                return self.getPtr(T).*;
+            }
+
+            pub fn getPtr(self: @This(), T: type) *T {
+                const i = blk: inline for (All, 0..) |Comp, i| {
+                    if (Comp == T) break :blk i;
+                } else @compileError(@typeName(T) ++ " is not in query type");
+                return @ptrCast(@alignCast(self.values[i]));
+            }
+        };
     };
 }
 

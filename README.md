@@ -49,9 +49,9 @@ const Velocity = struct { x: f32 = 0, y: f32 = 0 };
 
 fn move(world: *ecs.World, delta: f32) void {
     var query = world.query(.{ Position, Velocity });
-    while (query.next()) |entity| {
-        const velocity = query.get(entity, Velocity);
-        const position = query.getPtr(entity, Position);
+    while (query.next()) |row| {
+        const velocity = row.get(Velocity);
+        const position = row.getPtr(Position);
 
         position.x += velocity.x * delta;
         position.y += velocity.y * delta;
@@ -122,9 +122,9 @@ Use `query` for entities that have all requested components.
 
 ```zig
 var query = world.query(.{ Position, Velocity });
-while (query.next()) |entity| {
-    const position = query.getPtr(entity, Position);
-    const velocity = query.get(entity, Velocity);
+while (query.next()) |row| {
+    const position = row.getPtr(Position);
+    const velocity = row.get(Velocity);
     _ = .{ position, velocity };
 }
 ```
@@ -147,8 +147,8 @@ Use `reverse` for destructive passes.
 
 ```zig
 var query = world.query(.{ Dead }).reverse();
-while (query.next()) |entity| {
-    world.destroyEntity(entity);
+while (query.next()) |row| {
+    world.destroyEntity(row.entity);
 }
 ```
 
@@ -158,9 +158,9 @@ new component is part of the current query.
 ```zig
 fn markIdle(world: *ecs.World) void {
     var query = world.query(.{ Position, Velocity });
-    while (query.next()) |entity| {
-        if (query.get(entity, Velocity).x == 0) {
-            query.add(world, entity, Idle{});
+    while (query.next()) |row| {
+        if (row.get(Velocity).x == 0) {
+            query.add(world, row.entity, Idle{});
         }
     }
 }
@@ -266,7 +266,7 @@ This stops compilation; remove the option after checking the output.
 
 ## Notes
 
-- `Entity` is `u16`.
+- `Entity` is `u16`, supporting up to 65535 entities.
 - Each event type holds up to 65535 events.
 - `createEntity`, `add`, `addEvent`, and `addResource` panic on allocation failure.
 - Use `tryCreateEntity`, `tryAdd`, `tryAddEvent`, and `tryAddResource` when you
