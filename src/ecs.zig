@@ -115,7 +115,7 @@ fn Store(V: type, comptime kind: Kind) type {
         }
 
         fn growSparse(self: *@This(), gpa: Allocator, count: usize) Oom!void {
-            const cap = std.ArrayList(u16).growCapacity(count);
+            const cap = @min(std.ArrayList(u16).growCapacity(count), invalid);
             const sparse = try gpa.realloc(self.sparse, cap);
             @memset(sparse[self.sparse.len..], invalid);
             self.sparse = sparse;
