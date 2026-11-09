@@ -18,8 +18,7 @@ const Kind = enum { component, event, resource };
 
 const Entities = struct {
     versions: std.ArrayList(Version) = .empty,
-    deleted: std.bit_set.Dynamic = .{},
-    deletedCount: u16 = 0,
+    deleted: std.ArrayList(u16) = .empty,
 
     fn deinit(self: *Entities, gpa: Allocator) void {
         self.versions.deinit(gpa);
@@ -27,25 +26,26 @@ const Entities = struct {
     }
 
     pub fn create(self: *Entities, gpa: Allocator) EntityError!u16 {
-        if (self.deletedCount > 0) {
-            self.deletedCount -= 1;
-            return @intCast(self.deleted.toggleFirstSet().?);
-        }
+        if (self.deleted.pop()) |entity| return entity;
 
         if (self.versions.items.len == invalid) return error.MaxEntity;
-        try self.versions.ensureUnusedCapacity(gpa, 1);
-        if (self.versions.capacity > self.deleted.capacity())
-            try self.deleted.resize(gpa, self.versions.capacity, false);
+        const count = self.versions.items.len + 1;
+        var cap = self.versions.capacity;
+        if (count > cap) {
+            cap = @min(std.ArrayList(Version).growCapacity(count), invalid);
+            try self.versions.ensureTotalCapacityPrecise(gpa, cap);
+        }
+        try self.deleted.ensureTotalCapacityPrecise(gpa, cap);
 
         self.versions.appendAssumeCapacity(0);
         return @intCast(self.versions.items.len - 1);
     }
 
     fn destroy(self: *Entities, entity: u16) void {
-        std.debug.assert(!self.deleted.isSet(entity));
+        const found = std.mem.indexOfScalar(u16, self.deleted.items, entity);
+        std.debug.assert(found == null);
         self.versions.items[entity] +%= 1;
-        self.deleted.set(entity);
-        self.deletedCount += 1;
+        self.deleted.appendAssumeCapacity(entity);
     }
 
     pub fn isAlive(self: *const Entities, id: Handle) bool {
@@ -54,11 +54,9 @@ const Entities = struct {
     }
 
     pub fn to(self: *const Entities, entity: u16) ?Handle {
-        if (entity < self.versions.items.len) {
-            std.debug.assert(!self.deleted.isSet(entity));
-            const version = self.versions.items[entity];
-            return .{ .entity = entity, .version = version };
-        } else return null;
+        if (entity >= self.versions.items.len) return null;
+        const version = self.versions.items[entity];
+        return .{ .entity = entity, .version = version };
     }
 
     pub fn get(self: *const Entities, handle: ?Handle) ?u16 {
@@ -188,12 +186,8 @@ pub fn save(world: *const World, writer: *std.Io.Writer) !void {
     const entities = &world.entities;
     try writer.writeInt(usize, entities.versions.items.len, .little);
     try writer.writeAll(std.mem.sliceAsBytes(entities.versions.items));
-    try writer.writeInt(u16, entities.deletedCount, .little);
-    if (entities.deletedCount != 0) {
-        const masks = entities.deleted.masks - 1;
-        try writer.writeInt(usize, masks[0], .little);
-        try writer.writeAll(std.mem.sliceAsBytes(masks[0..masks[0]]));
-    }
+    try writer.writeInt(u16, @intCast(entities.deleted.items.len), .little);
+    try writer.writeAll(std.mem.sliceAsBytes(entities.deleted.items));
 
     try writer.writeInt(u32, world.map.count(), .little);
     var iterator = world.map.iterator();
@@ -218,17 +212,13 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
     errdefer world.deinit();
 
     const entities = &world.entities;
-    try entities.versions.resize(gpa, try reader.takeInt(usize, .little));
+    const entityCount = try reader.takeInt(usize, .little);
+    try entities.versions.ensureTotalCapacityPrecise(gpa, entityCount);
+    try entities.versions.resize(gpa, entityCount);
     try reader.readSliceAll(std.mem.sliceAsBytes(entities.versions.items));
-    entities.deletedCount = try reader.takeInt(u16, .little);
-    const bits = entities.versions.items.len;
-    if (entities.deletedCount != 0) {
-        const count = try reader.takeInt(usize, .little);
-        const masks = try gpa.alloc(usize, count);
-        masks[0] = count;
-        entities.deleted = .{ .bit_length = bits, .masks = masks.ptr + 1 };
-        try reader.readSliceAll(std.mem.sliceAsBytes(masks));
-    } else try entities.deleted.resize(gpa, bits, false);
+    try entities.deleted.ensureTotalCapacityPrecise(gpa, entityCount);
+    try entities.deleted.resize(gpa, try reader.takeInt(u16, .little));
+    try reader.readSliceAll(std.mem.sliceAsBytes(entities.deleted.items));
 
     for (0..try reader.takeInt(u32, .little)) |_| {
         const id = try reader.takeInt(TypeId, .little);
