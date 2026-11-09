@@ -2,7 +2,7 @@
 
 MiGu 是一个小型 Zig ECS。
 
-需要 Zig 0.17.0 或更新版本。使用 `zig build test` 或
+需要 Zig 0.17.1 或更新版本。使用 `zig build test` 或
 `zig build test -Doptimize=safe` 运行测试。
 
 它面向小型单线程游戏和工具。实体编号是 `u16`，所以最大实体数量有限。
@@ -171,15 +171,16 @@ const Position = struct { x: f32 = 0, y: f32 = 0 };
 const Camera = struct { x: f32 = 0, y: f32 = 0 };
 
 fn followPlayer(world: *ecs.World, camera: *Camera) void {
-    const player = world.getIdentity(Player) orelse return;
-    const position = world.get(player, Position) orelse return;
+    const position = world.getIdentity(Player, Position) orelse return;
 
     camera.x = position.x;
     camera.y = position.y;
 }
 
-const player = world.createIdentity(Player);
-world.add(player, Position{ .x = 10, .y = 20 });
+fn createPlayer(world: *ecs.World) void {
+    const player = world.createIdentity(Player);
+    world.add(player, Position{ .x = 10, .y = 20 });
+}
 ```
 
 它不会自动创建组件，只记录实体编号。
@@ -240,6 +241,20 @@ for (world.getEvent(SoundPlay)) |event| {
 
 world.clearEvent(SoundPlay);
 ```
+
+## ID 冲突
+
+Debug 构建会在编译时检查存储 ID 冲突，测试构建跳过检查。
+
+要定位冲突的存储 ID，在根文件配置 `migu_options`，
+然后使用 Debug 模式重新编译：
+
+```zig
+pub const migu_options: ecs.Options = .{ .debug_id = 7 };
+```
+
+匹配的 ID 会通过 `@compileLog` 输出类型名和存储类别。
+这会中止编译，查看输出后移除配置。
 
 ## 注意事项
 

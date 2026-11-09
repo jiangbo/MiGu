@@ -1,4 +1,5 @@
 const std = @import("std");
+const root = @import("root");
 
 const Allocator = std.mem.Allocator;
 
@@ -179,6 +180,10 @@ fn Store(V: type, comptime kind: Kind) type {
 
 pub const TypeId = u64;
 
+pub const Options = struct { debug_id: ?TypeId = null };
+const hasDecl = @hasDecl(root, "migu_options");
+pub const options: Options = if (hasDecl) root.migu_options else .{};
+
 pub fn save(world: *const World, writer: *std.Io.Writer) !void {
     const entities = &world.entities;
     try writer.writeInt(usize, entities.versions.items.len, .little);
@@ -262,11 +267,31 @@ pub const World = struct {
 
     fn id(T: type, comptime kind: Kind) TypeId {
         const hash = std.hash.Fnv1a_64.hash;
-        return comptime switch (kind) {
+        const value = comptime switch (kind) {
             .component => typeId(T),
             .event => hash(std.fmt.comptimePrint("e{d}", .{typeId(T)})),
             .resource => hash(std.fmt.comptimePrint("r{d}", .{typeId(T)})),
         };
+        const builtin = @import("builtin");
+        if (builtin.is_test or builtin.mode != .debug) return value;
+        _ = struct {
+            const Type = T;
+            const category = kind;
+            const marker: u8 = 0;
+            comptime {
+                const print = std.fmt.comptimePrint;
+                if (options.debug_id == value) {
+                    @compileLog(print("MiGu {s} ID {d}: {s}", .{
+                        @tagName(kind), value, @typeName(T),
+                    }));
+                }
+                @export(&marker, .{
+                    .name = print("migu_id_{d}", .{value}),
+                    .visibility = .hidden,
+                });
+            }
+        };
+        return value;
     }
 
     pub fn init(allocator: std.mem.Allocator) World {

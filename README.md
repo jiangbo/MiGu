@@ -4,7 +4,7 @@
 
 MiGu is a tiny ECS for Zig.
 
-Requires Zig 0.17.0 or newer. Run tests with `zig build test` or
+Requires Zig 0.17.1 or newer. Run tests with `zig build test` or
 `zig build test -Doptimize=safe`.
 
 It is designed for small single-threaded games and tools. Entity ids are
@@ -176,15 +176,16 @@ const Position = struct { x: f32 = 0, y: f32 = 0 };
 const Camera = struct { x: f32 = 0, y: f32 = 0 };
 
 fn followPlayer(world: *ecs.World, camera: *Camera) void {
-    const player = world.getIdentity(Player) orelse return;
-    const position = world.get(player, Position) orelse return;
+    const position = world.getIdentity(Player, Position) orelse return;
 
     camera.x = position.x;
     camera.y = position.y;
 }
 
-const player = world.createIdentity(Player);
-world.add(player, Position{ .x = 10, .y = 20 });
+fn createPlayer(world: *ecs.World) void {
+    const player = world.createIdentity(Player);
+    world.add(player, Position{ .x = 10, .y = 20 });
+}
 ```
 
 It does not create a component automatically. It only records the entity id.
@@ -248,6 +249,20 @@ for (world.getEvent(SoundPlay)) |event| {
 
 world.clearEvent(SoundPlay);
 ```
+
+## ID Conflicts
+
+Debug builds detect store ID conflicts at compile time, except in tests.
+
+To find the types behind a conflicting store ID, set `migu_options`
+in your root file and compile again in Debug mode:
+
+```zig
+pub const migu_options: ecs.Options = .{ .debug_id = 7 };
+```
+
+Matching IDs print their type names and store kinds through `@compileLog`.
+This stops compilation; remove the option after checking the output.
 
 ## Notes
 
