@@ -270,10 +270,13 @@ This stops compilation; remove the option after checking the output.
 ## Notes
 
 - `Entity` is `u16`, supporting up to 65535 entities.
+- A `Handle` version wraps after 32768 reuses of the same entity ID.
 - Each event type holds up to 65535 events.
 - `createEntity`, `add`, `addEvent`, and `addResource` panic on allocation failure.
 - Use `tryCreateEntity`, `tryAdd`, `tryAddEvent`, and `tryAddResource` when you
   need errors.
+- Component pointers may be invalidated by storage growth, removal, or sorting.
+- Sorting uses insertion sort, suited to mostly sorted data processed each frame.
 - A type alias is not a new component type.
 
 ```zig

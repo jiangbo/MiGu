@@ -262,10 +262,13 @@ pub const migu_options: ecs.Options = .{ .debug_id = 7 };
 ## 注意事项
 
 - `Entity` 是 `u16`，最多支持 65535 个实体。
+- `Handle` 的版本在同一实体编号复用 32768 次后回绕。
 - 每种事件最多保存 65535 条。
 - `createEntity`、`add`、`addEvent`、`addResource` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
   `tryAddEvent`、`tryAddResource`。
+- 组件指针可能因扩容、删除或排序失效。
+- 排序使用插入排序，适合每帧处理大体有序的数据。
 - 类型别名不会产生新的组件类型。
 
 ```zig
