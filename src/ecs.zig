@@ -388,13 +388,14 @@ pub const World = struct {
         return entity;
     }
 
-    pub fn getIdentityEntity(self: *World, T: type) ?u16 {
-        const map = self.getStore(T, .component) orelse return null;
+    pub fn getIdentityEntity(self: *const World, T: type) ?u16 {
+        const map = self.getStore(T) orelse return null;
         return if (map.identity == invalid) null else map.identity;
     }
 
-    pub fn getIdentity(self: *World, I: type, T: ?type) ?(T orelse I) {
-        return if (self.getIdentityPtr(I, T)) |v| v.* else null;
+    pub fn getIdentity(self: *const World, I: type, T: ?type) ?(T orelse I) {
+        const entity = self.getIdentityEntity(I) orelse return null;
+        return self.get(entity, T orelse I);
     }
 
     pub fn getIdentityPtr(self: *World, I: type, T: ?type) ?*(T orelse I) {
@@ -408,16 +409,16 @@ pub const World = struct {
         return entity;
     }
 
-    pub fn isIdentity(self: *World, entity: u16, T: type) bool {
+    pub fn isIdentity(self: *const World, entity: u16, T: type) bool {
         return if (self.getIdentityEntity(T)) |e| e == entity else false;
     }
 
-    pub fn hasIdentity(self: *World, T: type) bool {
+    pub fn hasIdentity(self: *const World, T: type) bool {
         return self.getIdentityEntity(T) != null;
     }
 
     pub fn removeIdentity(self: *World, T: type) void {
-        if (self.getStore(T, .component)) |map| map.identity = invalid;
+        if (self.store(T, .component)) |map| map.identity = invalid;
     }
 
     pub fn addEvent(self: *World, value: anytype) void {
@@ -428,12 +429,12 @@ pub const World = struct {
     }
 
     pub fn getEvent(self: *World, T: type) []T {
-        const map = self.getStore(T, .event) orelse return &.{};
+        const map = self.store(T, .event) orelse return &.{};
         return map.values[0..map.len];
     }
 
     pub fn clearEvent(self: *World, T: type) void {
-        if (self.getStore(T, .event)) |map| map.clear();
+        if (self.store(T, .event)) |map| map.clear();
     }
 
     pub fn removeEvent(self: *World, T: type) void {
@@ -446,7 +447,7 @@ pub const World = struct {
     }
 
     pub fn getResourcePtr(self: *World, T: type) ?*T {
-        const map = self.getStore(T, .resource) orelse return null;
+        const map = self.store(T, .resource) orelse return null;
         return if (map.len == 0) null else &map.values[0];
     }
 
@@ -455,22 +456,30 @@ pub const World = struct {
         if (removed) |*r| r.value.deinit(self.allocator);
     }
 
-    fn getStore(self: *World, T: type, comptime kind: Kind) ?*Store(T, kind) {
+    pub fn getStore(self: *const World, T: type) ?Store(T, .component) {
+        const map = self.map.get(id(T, .component)) orelse return null;
+        const typed: *const Store(T, .component) = @ptrCast(@alignCast(&map));
+        return typed.*;
+    }
+
+    fn store(self: *World, T: type, comptime kind: Kind) ?*Store(T, kind) {
         const map = self.map.getPtr(id(T, kind)) orelse return null;
         return @ptrCast(@alignCast(map));
     }
 
-    pub fn has(self: *World, entity: u16, T: type) bool {
-        const map = self.getStore(T, .component) orelse return false;
+    pub fn has(self: *const World, entity: u16, T: type) bool {
+        const map = self.getStore(T) orelse return false;
         return hasEntity(map.sparse, entity);
     }
 
-    pub fn get(self: *World, entity: u16, T: type) ?T {
-        return if (self.getPtr(entity, T)) |ptr| ptr.* else null;
+    pub fn get(self: *const World, entity: u16, T: type) ?T {
+        const map = self.getStore(T) orelse return null;
+        if (!hasEntity(map.sparse, entity)) return null;
+        return map.values[map.sparse[entity]];
     }
 
     pub fn getPtr(self: *World, entity: u16, T: type) ?*T {
-        const map = self.getStore(T, .component) orelse return null;
+        const map = self.store(T, .component) orelse return null;
         if (!hasEntity(map.sparse, entity)) return null;
         return &map.values[map.sparse[entity]];
     }
@@ -484,16 +493,16 @@ pub const World = struct {
     }
 
     pub fn values(self: *World, T: type) []T {
-        const map = self.getStore(T, .component) orelse return &.{};
+        const map = self.store(T, .component) orelse return &.{};
         return map.values[0..map.len];
     }
 
     pub fn sort(self: *World, T: type, lessFn: fn (T, T) bool) void {
-        if (self.getStore(T, .component)) |map| map.sort(lessFn);
+        if (self.store(T, .component)) |map| map.sort(lessFn);
     }
 
     pub fn remove(self: *World, entity: u16, T: type) void {
-        if (self.getStore(T, .component)) |map| map.remove(entity);
+        if (self.store(T, .component)) |map| map.remove(entity);
     }
 
     pub fn removeAll(self: *World, entity: u16) void {
@@ -505,7 +514,7 @@ pub const World = struct {
     }
 
     pub fn clear(self: *World, T: type) void {
-        if (self.getStore(T, .component)) |map| map.clear();
+        if (self.store(T, .component)) |map| map.clear();
     }
 
     pub fn query(self: *World, All: anytype) Query(All, .{}) {
@@ -521,7 +530,7 @@ pub const World = struct {
         var result: Query(All, None) = .{};
         var minCount: usize = std.math.maxInt(usize);
         inline for (All, &result.sparse, &result.values) |T, *s, *v| {
-            const map = self.getStore(T, .component) orelse return .{};
+            const map = self.store(T, .component) orelse return .{};
             s.*, v.* = .{ map.sparse, @ptrCast(map.values) };
             if (map.len < minCount) {
                 minCount = map.len;
@@ -529,7 +538,7 @@ pub const World = struct {
             }
         }
         inline for (None, &result.none) |T, *none| {
-            if (self.getStore(T, .component)) |s| none.* = s.sparse;
+            if (self.store(T, .component)) |s| none.* = s.sparse;
         }
         return result;
     }
@@ -539,15 +548,15 @@ pub const World = struct {
         None: anytype) Query(.{By} ++ All, None) {
     // zig fmt: on
         var rs: Query(.{By} ++ All, None) = .{};
-        const by = self.getStore(By, .component) orelse return rs;
+        const by = self.store(By, .component) orelse return rs;
         rs.dense = by.dense[0..by.len];
 
         inline for (.{By} ++ All, &rs.sparse, &rs.values) |T, *s, *v| {
-            const map = self.getStore(T, .component) orelse return .{};
+            const map = self.store(T, .component) orelse return .{};
             s.*, v.* = .{ map.sparse, @ptrCast(map.values) };
         }
         inline for (None, &rs.none) |T, *none| {
-            if (self.getStore(T, .component)) |s| none.* = s.sparse;
+            if (self.store(T, .component)) |s| none.* = s.sparse;
         }
         return rs;
     }

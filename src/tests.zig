@@ -383,3 +383,32 @@ fn lessThanRender(lhs: Render, rhs: Render) bool {
     if (lhs.layer == rhs.layer) return lhs.depth < rhs.depth;
     return lhs.layer < rhs.layer;
 }
+
+test "const world reads typed store copies" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const entity = world.createEntity();
+    world.add(entity, Position{ .x = 12 });
+    world.setIdentity(entity, Player);
+    world.addResource(Position{ .x = 24 });
+    world.addEvent(Position{ .x = 36 });
+
+    const view: *const ecs.World = &world;
+    try std.testing.expect(view.has(entity, Position));
+    try std.testing.expectEqual(12, view.get(entity, Position).?.x);
+    try std.testing.expectEqual(entity, view.getIdentityEntity(Player).?);
+    try std.testing.expect(view.hasIdentity(Player));
+    try std.testing.expect(view.isIdentity(entity, Player));
+    try std.testing.expectEqual(12, view.getIdentity(Player, Position).?.x);
+    try std.testing.expect(view.getStore(Velocity) == null);
+
+    var store = view.getStore(Position).?;
+    try std.testing.expectEqual(12, store.values[store.sparse[entity]].x);
+    store.len = 0;
+    try std.testing.expectEqual(1, view.getStore(Position).?.len);
+    world.remove(entity, Position);
+    try std.testing.expectEqual(0, view.getStore(Position).?.len);
+    try std.testing.expectEqual(24, world.getResourcePtr(Position).?.x);
+    try std.testing.expectEqual(36, world.getEvent(Position)[0].x);
+}
