@@ -412,3 +412,46 @@ test "const world reads typed store copies" {
     try std.testing.expectEqual(24, world.getResourcePtr(Position).?.x);
     try std.testing.expectEqual(36, world.getEvent(Position)[0].x);
 }
+
+test "save and load versioned world" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+    const removed = world.createEntity();
+    const entity = world.createEntity();
+    world.add(entity, Position{ .x = 12, .y = 34 });
+    world.add(entity, Player{});
+    world.setIdentity(entity, Player);
+    world.addResource(Clock{ .hour = 9 });
+    world.addEvent(SoundPlay{ .id = 7 });
+    world.destroyEntity(removed);
+
+    var output: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer output.deinit();
+    try ecs.save(&world, &output.writer);
+    var reader = std.Io.Reader.fixed(output.writer.buffered());
+    var loaded = try ecs.load(std.testing.allocator, &reader);
+    defer loaded.deinit();
+
+    try std.testing.expectEqual(12, loaded.get(entity, Position).?.x);
+    try std.testing.expectEqual(34, loaded.get(entity, Position).?.y);
+    try std.testing.expect(loaded.has(entity, Player));
+    try std.testing.expectEqual(entity, loaded.getIdentityEntity(Player).?);
+    try std.testing.expectEqual(9, loaded.getResourcePtr(Clock).?.hour);
+    try std.testing.expectEqual(7, loaded.getEvent(SoundPlay)[0].id);
+    try std.testing.expectEqual(removed, loaded.createEntity());
+}
+
+// Reject incompatible headers before trying to read or allocate the body.
+test "load rejects unsupported and incomplete versions" {
+    for ([_][4]u8{ .{ 0, 0, 0, 0 }, .{ 2, 0, 0, 0 } }) |header| {
+        var reader = std.Io.Reader.fixed(&header);
+        const result = ecs.load(std.testing.allocator, &reader);
+        try std.testing.expectError(error.UnsupportedVersion, result);
+    }
+    const header = [_]u8{ 1, 0, 0, 0 };
+    for (0..header.len) |len| {
+        var reader = std.Io.Reader.fixed(header[0..len]);
+        const result = ecs.load(std.testing.allocator, &reader);
+        try std.testing.expectError(error.EndOfStream, result);
+    }
+}

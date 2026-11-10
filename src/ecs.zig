@@ -186,7 +186,10 @@ pub const Options = struct { debug_id: ?TypeId = null };
 const hasDecl = @hasDecl(root, "migu_options");
 pub const options: Options = if (hasDecl) root.migu_options else .{};
 
+const saveVersion: u32 = 1;
+
 pub fn save(world: *const World, writer: *std.Io.Writer) !void {
+    try writer.writeInt(u32, saveVersion, .little);
     const entities = &world.entities;
     try writer.writeInt(usize, entities.versions.items.len, .little);
     try writer.writeAll(std.mem.sliceAsBytes(entities.versions.items));
@@ -212,6 +215,9 @@ pub fn save(world: *const World, writer: *std.Io.Writer) !void {
 }
 
 pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
+    const version = try reader.takeInt(u32, .little);
+    if (version != saveVersion) return error.UnsupportedVersion;
+
     var world = World.init(gpa);
     errdefer world.deinit();
 
