@@ -108,6 +108,34 @@ test "add all and query components" {
     try std.testing.expectEqual(null, query.next());
 }
 
+// 删除搬移后，各组件的位置不同；直接取值不筛选，也不推进游标。
+test "query gets components by entity after removal" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createEntity();
+    const second = world.createEntity();
+    const third = world.createEntity();
+    world.add(first, Position{ .x = 10 });
+    world.add(second, Position{ .x = 20 });
+    world.add(third, Position{ .x = 30 });
+    world.add(second, Velocity{ .x = 2 });
+    world.add(third, Velocity{ .x = 3 });
+    world.add(third, Hidden{});
+    world.remove(first, Position);
+
+    var query = world.queryNot(.{ Position, Velocity }, .{Hidden});
+    try std.testing.expectEqual(30, query.get(third, Position).x);
+    query.getPtr(third, Position).x += query.get(third, Velocity).x;
+    try std.testing.expectEqual(33, world.get(third, Position).?.x);
+    try std.testing.expectEqual(20, query.get(second, Position).x);
+    try std.testing.expectEqual(second, query.next().?.entity);
+    try std.testing.expectEqual(null, query.next());
+
+    const single = world.query(.{Position});
+    try std.testing.expectEqual(33, single.get(third, Position).x);
+}
+
 test "query supports slice component" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
@@ -116,6 +144,7 @@ test "query supports slice component" {
     world.add(entity, @as(Text, "hello"));
 
     var query = world.query(.{Text});
+    try std.testing.expectEqualStrings("hello", query.get(entity, Text));
     const found = query.next().?;
     try std.testing.expectEqualStrings("hello", found.get(Text));
 
@@ -195,7 +224,7 @@ test "identity stores one entity for type" {
     try std.testing.expectEqual(player, taken);
     try std.testing.expect(!world.hasIdentity(Player));
 
-    world.addIdentity(player, Player);
+    world.setIdentity(player, Player);
     world.removeIdentity(Player);
     try std.testing.expect(!world.hasIdentity(Player));
 }

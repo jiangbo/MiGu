@@ -132,6 +132,10 @@ while (query.next()) |row| {
 }
 ```
 
+For a known entity, use `query.get(entity, T)` or `query.getPtr(entity, T)`.
+All required component stores must exist, and the entity must have `T`.
+These methods do not recheck query filters.
+
 Use `queryNot` to exclude components.
 
 ```zig
@@ -271,6 +275,7 @@ This stops compilation; remove the option after checking the output.
 
 - `Entity` is `u16`, supporting up to 65535 entities.
 - A `Handle` version wraps after 32768 reuses of the same entity ID.
+- Discard old handles after resetting the world, as version data is cleared.
 - Each event type holds up to 65535 events.
 - `createEntity`, `add`, `addEvent`, and `addResource` panic on allocation failure.
 - Use `tryCreateEntity`, `tryAdd`, `tryAddEvent`, and `tryAddResource` when you

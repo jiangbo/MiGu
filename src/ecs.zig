@@ -326,7 +326,7 @@ pub const World = struct {
         return self.entities.create(self.allocator);
     }
 
-    pub fn tryAddIdentity(self: *World, entity: u16, T: type) Oom!void {
+    pub fn trySetIdentity(self: *World, entity: u16, T: type) Oom!void {
         (try self.tryAssure(T, .component)).identity = entity;
     }
 
@@ -378,13 +378,13 @@ pub const World = struct {
         while (toDestroy.next()) |row| self.destroyEntity(row.entity);
     }
 
-    pub fn addIdentity(self: *World, entity: u16, T: type) void {
-        self.tryAddIdentity(entity, T) catch @panic("oom");
+    pub fn setIdentity(self: *World, entity: u16, T: type) void {
+        self.trySetIdentity(entity, T) catch @panic("oom");
     }
 
     pub fn createIdentity(self: *World, T: type) u16 {
         const entity = self.createEntity();
-        self.addIdentity(entity, T);
+        self.setIdentity(entity, T);
         return entity;
     }
 
@@ -601,6 +601,18 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
             } else false;
             if (inQuery) std.debug.assert(world.has(e, @TypeOf(v)));
             world.add(e, v);
+        }
+
+        pub fn get(self: *const @This(), entity: Entity, T: type) T {
+            return self.getPtr(entity, T).*;
+        }
+
+        pub fn getPtr(self: *const @This(), entity: Entity, T: type) *T {
+            const i = blk: inline for (All, 0..) |Comp, i| {
+                if (Comp == T) break :blk i;
+            } else @compileError(@typeName(T) ++ " is not in query type");
+            const values: [*]T = @ptrCast(@alignCast(self.values[i]));
+            return &values[self.sparse[i][entity]];
         }
 
         pub const Row = struct {

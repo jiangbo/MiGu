@@ -128,6 +128,9 @@ while (query.next()) |row| {
 }
 ```
 
+已知实体编号时，可用 `query.get(entity, T)` 和 `query.getPtr(entity, T)` 直接取组件。
+调用方须保证查询所需存储已存在，且实体拥有 `T`；这两个方法不重新检查查询条件。
+
 `queryNot` 用来排除组件。
 
 ```zig
@@ -263,6 +266,7 @@ pub const migu_options: ecs.Options = .{ .debug_id = 7 };
 
 - `Entity` 是 `u16`，最多支持 65535 个实体。
 - `Handle` 的版本在同一实体编号复用 32768 次后回绕。
+- 重置世界后，弃用旧 Handle，版本数据被清空。
 - 每种事件最多保存 65535 条。
 - `createEntity`、`add`、`addEvent`、`addResource` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
