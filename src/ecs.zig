@@ -375,7 +375,11 @@ pub const World = struct {
     }
 
     pub fn destroyEntity(self: *World, entity: u16) void {
-        self.removeAll(entity);
+        var iterator = self.map.valueIterator();
+        while (iterator.next()) |map| {
+            map.remove(entity);
+            if (map.identity == entity) map.identity = invalid;
+        }
         self.entities.destroy(entity);
     }
 
@@ -494,7 +498,7 @@ pub const World = struct {
         self.tryAdd(entity, value) catch @panic("oom");
     }
 
-    pub fn addAll(self: *World, entity: u16, bundle: anytype) void {
+    pub fn addMany(self: *World, entity: u16, bundle: anytype) void {
         inline for (bundle) |value| self.add(entity, value);
     }
 
@@ -511,12 +515,13 @@ pub const World = struct {
         if (self.store(T, .component)) |map| map.remove(entity);
     }
 
+    pub fn removeMany(self: *World, entity: u16, Types: anytype) void {
+        inline for (Types) |T| self.remove(entity, T);
+    }
+
     pub fn removeAll(self: *World, entity: u16) void {
         var iterator = self.map.valueIterator();
-        while (iterator.next()) |map| {
-            map.remove(entity);
-            if (map.identity == entity) map.identity = invalid;
-        }
+        while (iterator.next()) |map| map.remove(entity);
     }
 
     pub fn clear(self: *World, T: type) void {

@@ -89,12 +89,12 @@ test "storage keeps values after growth" {
     }
 }
 
-test "add all and query components" {
+test "add many and query components" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
 
     const entity = world.createEntity();
-    world.addAll(entity, .{
+    world.addMany(entity, .{
         Position{ .x = 1, .y = 2 },
         Velocity{ .x = 3, .y = 4 },
     });
@@ -106,6 +106,26 @@ test "add all and query components" {
     try std.testing.expectEqual(1, found.get(Position).x);
     try std.testing.expectEqual(3, found.get(Velocity).x);
     try std.testing.expectEqual(null, query.next());
+}
+
+test "remove many keeps other components and entities" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createEntity();
+    const second = world.createEntity();
+    world.addMany(first, .{ Position{ .x = 1 }, Velocity{}, Player{} });
+    world.addMany(second, .{ Position{ .x = 2 }, Velocity{} });
+    world.setIdentity(first, Player);
+
+    world.removeMany(first, .{ Position, Hidden, Velocity });
+
+    try std.testing.expect(!world.has(first, Position));
+    try std.testing.expect(!world.has(first, Velocity));
+    try std.testing.expect(world.has(first, Player));
+    try std.testing.expect(world.isIdentity(first, Player));
+    try std.testing.expectEqual(2, world.get(second, Position).?.x);
+    try std.testing.expect(world.has(second, Velocity));
 }
 
 // 删除搬移后，各组件的位置不同；直接取值不筛选，也不推进游标。
@@ -208,7 +228,7 @@ test "identity stores one entity for type" {
     defer world.deinit();
 
     const player = world.createIdentity(Player);
-    world.addAll(player, .{
+    world.addMany(player, .{
         Player{},
         Position{ .x = 5 },
     });
@@ -227,6 +247,32 @@ test "identity stores one entity for type" {
     world.setIdentity(player, Player);
     world.removeIdentity(Player);
     try std.testing.expect(!world.hasIdentity(Player));
+}
+
+test "remove all keeps identities and destroy clears them" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createIdentity(Player);
+    world.setIdentity(first, Hidden);
+    world.addMany(first, .{ Player{}, Position{} });
+    const second = world.createIdentity(Enemy);
+
+    world.removeAll(first);
+    try std.testing.expect(!world.has(first, Player));
+    try std.testing.expect(!world.has(first, Position));
+    try std.testing.expect(world.isIdentity(first, Player));
+    try std.testing.expect(world.isIdentity(first, Hidden));
+
+    world.add(first, Position{});
+    world.destroyEntity(first);
+    try std.testing.expect(!world.has(first, Position));
+    try std.testing.expect(!world.hasIdentity(Player));
+    try std.testing.expect(!world.hasIdentity(Hidden));
+    try std.testing.expect(world.isIdentity(second, Enemy));
+    try std.testing.expectEqual(first, world.createEntity());
+    try std.testing.expect(!world.hasIdentity(Player));
+    try std.testing.expect(!world.hasIdentity(Hidden));
 }
 
 test "events are stored and cleared by type" {

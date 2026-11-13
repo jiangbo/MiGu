@@ -85,6 +85,7 @@ const Player = struct {};
 ```zig
 world.add(entity, Position{ .x = 1, .y = 2 });
 world.add(entity, Player{});
+world.addMany(entity, .{ Position{ .x = 1, .y = 2 }, Player{} });
 ```
 
 读取组件：
@@ -98,6 +99,7 @@ const position_ptr = world.getPtr(entity, Position).?;
 
 ```zig
 world.remove(entity, Player);
+world.removeMany(entity, .{ Position, Player });
 ```
 
 ## 组件 ID

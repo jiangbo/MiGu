@@ -89,6 +89,7 @@ Add components:
 ```zig
 world.add(entity, Position{ .x = 1, .y = 2 });
 world.add(entity, Player{});
+world.addMany(entity, .{ Position{ .x = 1, .y = 2 }, Player{} });
 ```
 
 Read components:
@@ -102,6 +103,7 @@ Remove components:
 
 ```zig
 world.remove(entity, Player);
+world.removeMany(entity, .{ Position, Player });
 ```
 
 ## Component ID
