@@ -234,8 +234,8 @@ test "identity stores one entity for type" {
     });
 
     try std.testing.expectEqual(player, world.getIdentityEntity(Player).?);
-    try std.testing.expect(world.getIdentity(Player, null) != null);
-    try std.testing.expect(world.getIdentityPtr(Player, null) != null);
+    try std.testing.expect(world.getIdentity(Player, Player) != null);
+    try std.testing.expect(world.getIdentityPtr(Player, Player) != null);
     try std.testing.expectEqual(5, world.getIdentity(Player, Position).?.x);
     try std.testing.expect(world.isIdentity(player, Player));
     try std.testing.expect(world.hasIdentity(Player));
@@ -315,6 +315,37 @@ test "values clear and remove all components" {
 
     world.clear(Position);
     try std.testing.expectEqual(0, world.values(Position).len);
+}
+
+test "remove except keeps listed components and other world data" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createIdentity(Player);
+    world.setIdentity(first, Hidden);
+    world.addMany(first, .{ Position{ .x = 1 }, Velocity{}, Player{} });
+    const second = world.createEntity();
+    world.addMany(second, .{ Position{ .x = 2 }, Velocity{}, Player{} });
+    world.addResource(Velocity{ .x = 3 });
+    world.addEvent(Player{});
+
+    world.removeExcept(first, .{ Position, Idle });
+    try std.testing.expectEqual(1, world.get(first, Position).?.x);
+    try std.testing.expect(!world.has(first, Velocity));
+    try std.testing.expect(!world.has(first, Player));
+    try std.testing.expect(!world.has(first, Idle));
+    try std.testing.expect(world.isIdentity(first, Player));
+    try std.testing.expect(world.isIdentity(first, Hidden));
+    try std.testing.expectEqual(2, world.get(second, Position).?.x);
+    try std.testing.expect(world.has(second, Velocity));
+    try std.testing.expect(world.has(second, Player));
+    try std.testing.expectEqual(3, world.getResourcePtr(Velocity).?.x);
+    try std.testing.expectEqual(1, world.getEvent(Player).len);
+
+    world.removeExcept(first, .{});
+    try std.testing.expect(!world.has(first, Position));
+    try std.testing.expect(world.isIdentity(first, Player));
+    try std.testing.expect(world.isIdentity(first, Hidden));
 }
 
 test "destroy entities removes every entity with component" {
@@ -416,7 +447,7 @@ test "handle rejects destroyed entity after id reuse" {
     defer world.deinit();
 
     const entity = world.createEntity();
-    const handle = world.entities.to(entity).?;
+    const handle = world.entities.to(entity);
 
     world.destroyEntity(entity);
     const reused = world.createEntity();

@@ -161,8 +161,7 @@ while (query.next()) |row| {
 }
 ```
 
-Use `query.add` to safely add components while iterating. It asserts if the
-new component is part of the current query.
+Use `query.add` to safely add components while iterating.
 
 ```zig
 fn markIdle(world: *ecs.World) void {
@@ -206,7 +205,7 @@ destroyed and its id may be reused later.
 
 ```zig
 const enemy = world.createEntity();
-const handle = world.entities.to(enemy).?;
+const handle = world.entities.to(enemy);
 
 world.destroyEntity(enemy);
 

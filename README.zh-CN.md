@@ -156,7 +156,7 @@ while (query.next()) |row| {
 }
 ```
 
-遍历时用 `query.add` 安全添加组件。如果新组件属于当前查询，会触发断言并暴露错误。
+遍历过程中使用 `query.add` 安全添加组件。
 
 ```zig
 fn markIdle(world: *ecs.World) void {
@@ -199,7 +199,7 @@ fn createPlayer(world: *ecs.World) void {
 
 ```zig
 const enemy = world.createEntity();
-const handle = world.entities.to(enemy).?;
+const handle = world.entities.to(enemy);
 
 world.destroyEntity(enemy);
 

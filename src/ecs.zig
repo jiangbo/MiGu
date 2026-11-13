@@ -25,7 +25,7 @@ const Entities = struct {
         self.deleted.deinit(gpa);
     }
 
-    pub fn create(self: *Entities, gpa: Allocator) EntityError!u16 {
+    fn create(self: *Entities, gpa: Allocator) EntityError!u16 {
         if (self.deleted.pop()) |entity| {
             self.versions.items[entity] +%= 1;
             return entity;
@@ -56,8 +56,8 @@ const Entities = struct {
             self.versions.items[id.entity] == id.version;
     }
 
-    pub fn to(self: *const Entities, entity: u16) ?Handle {
-        if (entity >= self.versions.items.len) return null;
+    pub fn to(self: *const Entities, entity: Entity) Handle {
+        std.debug.assert(entity < self.versions.items.len);
         const version = self.versions.items[entity];
         std.debug.assert(version % 2 == 0);
         return .{ .entity = entity, .version = version };
@@ -191,7 +191,7 @@ const saveVersion: u32 = 1;
 pub fn save(world: *const World, writer: *std.Io.Writer) !void {
     try writer.writeInt(u32, saveVersion, .little);
     const entities = &world.entities;
-    try writer.writeInt(usize, entities.versions.items.len, .little);
+    try writer.writeInt(u16, @intCast(entities.versions.items.len), .little);
     try writer.writeAll(std.mem.sliceAsBytes(entities.versions.items));
     try writer.writeInt(u16, @intCast(entities.deleted.items.len), .little);
     try writer.writeAll(std.mem.sliceAsBytes(entities.deleted.items));
@@ -206,10 +206,10 @@ pub fn save(world: *const World, writer: *std.Io.Writer) !void {
         try writer.writeInt(u16, store.valueSize, .little);
         try writer.writeInt(u8, @backingInt(store.alignment), .little);
         const count: u16 = if (store.denseCap == 0) 0 else store.len;
-        try writer.writeInt(usize, count, .little);
+        try writer.writeInt(u16, count, .little);
         try writer.writeAll(std.mem.sliceAsBytes(store.dense[0..count]));
-        const size = @as(usize, store.len) * store.valueSize;
-        try writer.writeInt(usize, size, .little);
+        const size = @as(u32, store.len) * store.valueSize;
+        try writer.writeInt(u32, size, .little);
         try writer.writeAll(store.values[0..size]);
     }
 }
@@ -222,7 +222,7 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
     errdefer world.deinit();
 
     const entities = &world.entities;
-    const entityCount = try reader.takeInt(usize, .little);
+    const entityCount = try reader.takeInt(u16, .little);
     try entities.versions.ensureTotalCapacityPrecise(gpa, entityCount);
     try entities.versions.resize(gpa, entityCount);
     try reader.readSliceAll(std.mem.sliceAsBytes(entities.versions.items));
@@ -241,7 +241,7 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
         store.alignment = @fromBackingInt(@intCast(alignment));
         store.values = @ptrFromInt(store.alignment.toByteUnits());
 
-        const dense = try gpa.alloc(u16, try reader.takeInt(usize, .little));
+        const dense = try gpa.alloc(u16, try reader.takeInt(u16, .little));
         store.dense, store.denseCap = .{ dense.ptr, @intCast(dense.len) };
         try reader.readSliceAll(std.mem.sliceAsBytes(dense));
         if (dense.len != 0) {
@@ -250,7 +250,7 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
             for (dense, 0..) |e, i| store.sparse[e] = @intCast(i);
         }
 
-        const size = try reader.takeInt(usize, .little);
+        const size = try reader.takeInt(u32, .little);
         if (store.valueSize == 0) store.valueCap = invalid;
         if (size == 0) continue;
         store.values = gpa.rawAlloc(size, store.alignment, //
@@ -403,14 +403,14 @@ pub const World = struct {
         return if (map.identity == invalid) null else map.identity;
     }
 
-    pub fn getIdentity(self: *const World, I: type, T: ?type) ?(T orelse I) {
+    pub fn getIdentity(self: *const World, I: type, T: type) ?T {
         const entity = self.getIdentityEntity(I) orelse return null;
-        return self.get(entity, T orelse I);
+        return self.get(entity, T);
     }
 
-    pub fn getIdentityPtr(self: *World, I: type, T: ?type) ?*(T orelse I) {
+    pub fn getIdentityPtr(self: *World, I: type, T: type) ?*T {
         const entity = self.getIdentityEntity(I) orelse return null;
-        return self.getPtr(entity, T orelse I);
+        return self.getPtr(entity, T);
     }
 
     pub fn takeIdentity(self: *World, T: type) ?u16 {
@@ -522,6 +522,16 @@ pub const World = struct {
     pub fn removeAll(self: *World, entity: u16) void {
         var iterator = self.map.valueIterator();
         while (iterator.next()) |map| map.remove(entity);
+    }
+
+    pub fn removeExcept(self: *World, entity: u16, Types: anytype) void {
+        var iterator = self.map.iterator();
+        blk: while (iterator.next()) |entry| {
+            inline for (Types) |T| {
+                if (entry.key_ptr.* == id(T, .component)) continue :blk;
+            }
+            entry.value_ptr.remove(entity);
+        }
     }
 
     pub fn clear(self: *World, T: type) void {
