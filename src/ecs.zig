@@ -33,12 +33,11 @@ const Entities = struct {
 
         if (self.versions.items.len == invalid) return error.MaxEntity;
         const count = self.versions.items.len + 1;
-        var cap = self.versions.capacity;
-        if (count > cap) {
-            cap = @min(std.ArrayList(Version).growCapacity(count), invalid);
+        if (count > self.versions.capacity) {
+            const cap = @min(std.ArrayList(Version).growCapacity(count), invalid);
+            try self.deleted.ensureTotalCapacityPrecise(gpa, cap);
             try self.versions.ensureTotalCapacityPrecise(gpa, cap);
         }
-        try self.deleted.ensureTotalCapacityPrecise(gpa, cap);
 
         self.versions.appendAssumeCapacity(0);
         return @intCast(self.versions.items.len - 1);
@@ -642,6 +641,7 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
                 if (Comp == T) break :blk i;
             } else @compileError(@typeName(T) ++ " is not in query type");
             const values: [*]T = @ptrCast(@alignCast(self.values[i]));
+            std.debug.assert(hasEntity(self.sparse[i], entity));
             return &values[self.sparse[i][entity]];
         }
 
