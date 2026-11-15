@@ -397,33 +397,21 @@ pub const World = struct {
         return entity;
     }
 
-    pub fn getIdentityEntity(self: *const World, T: type) ?u16 {
+    pub fn getIdentity(self: *const World, T: type) ?u16 {
         const map = self.storeConst(T, .component) orelse return null;
         return if (map.identity == invalid) null else map.identity;
     }
 
-    pub fn getIdentity(self: *const World, I: type, T: type) ?T {
-        const entity = self.getIdentityEntity(I) orelse return null;
+    pub fn getByIdentity(self: *const World, I: type, T: type) ?T {
+        const entity = self.getIdentity(I) orelse return null;
         return self.get(entity, T);
     }
 
-    pub fn getIdentityPtr(self: *World, I: type, T: type) ?*T {
-        const entity = self.getIdentityEntity(I) orelse return null;
-        return self.getPtr(entity, T);
-    }
-
     pub fn takeIdentity(self: *World, T: type) ?u16 {
-        const entity = self.getIdentityEntity(T);
-        self.removeIdentity(T);
-        return entity;
-    }
-
-    pub fn isIdentity(self: *const World, entity: u16, T: type) bool {
-        return if (self.getIdentityEntity(T)) |e| e == entity else false;
-    }
-
-    pub fn hasIdentity(self: *const World, T: type) bool {
-        return self.getIdentityEntity(T) != null;
+        const map = self.store(T, .component) orelse return null;
+        const entity = map.identity;
+        map.identity = invalid;
+        return if (entity == invalid) null else entity;
     }
 
     pub fn removeIdentity(self: *World, T: type) void {
@@ -455,6 +443,11 @@ pub const World = struct {
         self.tryAddResource(value) catch @panic("oom");
     }
 
+    pub fn getResourcePtrConst(self: *const World, T: type) ?*const T {
+        const map = self.storeConst(T, .resource) orelse return null;
+        return if (map.len == 0) null else &map.values[0];
+    }
+
     pub fn getResourcePtr(self: *World, T: type) ?*T {
         const map = self.store(T, .resource) orelse return null;
         return if (map.len == 0) null else &map.values[0];
@@ -481,9 +474,13 @@ pub const World = struct {
     }
 
     pub fn get(self: *const World, entity: u16, T: type) ?T {
+        return if (self.getPtrConst(entity, T)) |ptr| ptr.* else null;
+    }
+
+    pub fn getPtrConst(self: *const World, entity: u16, T: type) ?*const T {
         const map = self.storeConst(T, .component) orelse return null;
         if (!hasEntity(map.sparse, entity)) return null;
-        return map.values[map.sparse[entity]];
+        return &map.values[map.sparse[entity]];
     }
 
     pub fn getPtr(self: *World, entity: u16, T: type) ?*T {

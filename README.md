@@ -180,7 +180,7 @@ const Position = struct { x: f32 = 0, y: f32 = 0 };
 const Camera = struct { x: f32 = 0, y: f32 = 0 };
 
 fn followPlayer(world: *ecs.World, camera: *Camera) void {
-    const position = world.getIdentity(Player, Position) orelse return;
+    const position = world.getByIdentity(Player, Position) orelse return;
 
     camera.x = position.x;
     camera.y = position.y;

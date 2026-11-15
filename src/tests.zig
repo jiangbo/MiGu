@@ -122,7 +122,7 @@ test "remove many keeps other components and entities" {
     try std.testing.expect(!world.has(first, Position));
     try std.testing.expect(!world.has(first, Velocity));
     try std.testing.expect(world.has(first, Player));
-    try std.testing.expect(world.isIdentity(first, Player));
+    try std.testing.expectEqual(first, world.getIdentity(Player).?);
     try std.testing.expectEqual(2, world.get(second, Position).?.x);
     try std.testing.expect(world.has(second, Velocity));
 }
@@ -143,7 +143,10 @@ test "query not excludes components after removal" {
     world.remove(first, Position);
 
     var query = world.queryNot(.{ Position, Velocity }, .{Hidden});
-    try std.testing.expectEqual(second, query.next().?.entity);
+    const row = query.next().?;
+    try std.testing.expectEqual(second, row.entity);
+    try std.testing.expectEqual(20, row.get(Position).x);
+    try std.testing.expectEqual(2, row.get(Velocity).x);
     try std.testing.expectEqual(null, query.next());
 }
 
@@ -217,26 +220,29 @@ test "identity stores one entity for type" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
 
+    try std.testing.expectEqual(null, world.getIdentity(Player));
+    try std.testing.expectEqual(null, world.getByIdentity(Player, Position));
+    try std.testing.expectEqual(null, world.takeIdentity(Player));
+
     const player = world.createIdentity(Player);
+    try std.testing.expectEqual(player, world.getIdentity(Player).?);
+    try std.testing.expectEqual(null, world.getByIdentity(Player, Position));
     world.addMany(player, .{
         Player{},
         Position{ .x = 5 },
     });
 
-    try std.testing.expectEqual(player, world.getIdentityEntity(Player).?);
-    try std.testing.expect(world.getIdentity(Player, Player) != null);
-    try std.testing.expect(world.getIdentityPtr(Player, Player) != null);
-    try std.testing.expectEqual(5, world.getIdentity(Player, Position).?.x);
-    try std.testing.expect(world.isIdentity(player, Player));
-    try std.testing.expect(world.hasIdentity(Player));
+    try std.testing.expectEqual(player, world.getIdentity(Player).?);
+    try std.testing.expectEqual(5, world.getByIdentity(Player, Position).?.x);
 
     const taken = world.takeIdentity(Player).?;
     try std.testing.expectEqual(player, taken);
-    try std.testing.expect(!world.hasIdentity(Player));
+    try std.testing.expectEqual(null, world.takeIdentity(Player));
+    try std.testing.expectEqual(null, world.getByIdentity(Player, Position));
 
     world.setIdentity(player, Player);
     world.removeIdentity(Player);
-    try std.testing.expect(!world.hasIdentity(Player));
+    try std.testing.expectEqual(null, world.getIdentity(Player));
 }
 
 test "remove all keeps identities and destroy clears them" {
@@ -251,18 +257,18 @@ test "remove all keeps identities and destroy clears them" {
     world.removeAll(first);
     try std.testing.expect(!world.has(first, Player));
     try std.testing.expect(!world.has(first, Position));
-    try std.testing.expect(world.isIdentity(first, Player));
-    try std.testing.expect(world.isIdentity(first, Hidden));
+    try std.testing.expectEqual(first, world.getIdentity(Player).?);
+    try std.testing.expectEqual(first, world.getIdentity(Hidden).?);
 
     world.add(first, Position{});
     world.destroyEntity(first);
     try std.testing.expect(!world.has(first, Position));
-    try std.testing.expect(!world.hasIdentity(Player));
-    try std.testing.expect(!world.hasIdentity(Hidden));
-    try std.testing.expect(world.isIdentity(second, Enemy));
+    try std.testing.expectEqual(null, world.getIdentity(Player));
+    try std.testing.expectEqual(null, world.getIdentity(Hidden));
+    try std.testing.expectEqual(second, world.getIdentity(Enemy).?);
     try std.testing.expectEqual(first, world.createEntity());
-    try std.testing.expect(!world.hasIdentity(Player));
-    try std.testing.expect(!world.hasIdentity(Hidden));
+    try std.testing.expectEqual(null, world.getIdentity(Player));
+    try std.testing.expectEqual(null, world.getIdentity(Hidden));
 }
 
 test "events are stored and cleared by type" {
@@ -324,8 +330,8 @@ test "remove except keeps listed components and other world data" {
     try std.testing.expect(!world.has(first, Velocity));
     try std.testing.expect(!world.has(first, Player));
     try std.testing.expect(!world.has(first, Idle));
-    try std.testing.expect(world.isIdentity(first, Player));
-    try std.testing.expect(world.isIdentity(first, Hidden));
+    try std.testing.expectEqual(first, world.getIdentity(Player).?);
+    try std.testing.expectEqual(first, world.getIdentity(Hidden).?);
     try std.testing.expectEqual(2, world.get(second, Position).?.x);
     try std.testing.expect(world.has(second, Velocity));
     try std.testing.expect(world.has(second, Player));
@@ -334,8 +340,8 @@ test "remove except keeps listed components and other world data" {
 
     world.removeExcept(first, .{});
     try std.testing.expect(!world.has(first, Position));
-    try std.testing.expect(world.isIdentity(first, Player));
-    try std.testing.expect(world.isIdentity(first, Hidden));
+    try std.testing.expectEqual(first, world.getIdentity(Player).?);
+    try std.testing.expectEqual(first, world.getIdentity(Hidden).?);
 }
 
 test "destroy entities removes every entity with component" {
@@ -417,18 +423,24 @@ test "sort and query by component order" {
     defer world.deinit();
 
     const front = world.createEntity();
-    world.add(front, Position{});
+    world.add(front, Position{ .x = 20 });
     world.add(front, Render{ .layer = 1, .depth = 20 });
 
     const back = world.createEntity();
-    world.add(back, Position{});
+    world.add(back, Position{ .x = 10 });
     world.add(back, Render{ .layer = 1, .depth = 10 });
 
     world.sort(Render, lessThanRender);
 
     var query = world.queryBy(Render, .{Position}, .{});
-    try std.testing.expectEqual(back, query.next().?.entity);
-    try std.testing.expectEqual(front, query.next().?.entity);
+    const backRow = query.next().?;
+    try std.testing.expectEqual(back, backRow.entity);
+    try std.testing.expectEqual(10, backRow.get(Position).x);
+    try std.testing.expectEqual(10, backRow.get(Render).depth);
+    const frontRow = query.next().?;
+    try std.testing.expectEqual(front, frontRow.entity);
+    try std.testing.expectEqual(20, frontRow.get(Position).x);
+    try std.testing.expectEqual(20, frontRow.get(Render).depth);
     try std.testing.expectEqual(null, query.next());
 }
 
@@ -464,17 +476,20 @@ test "const world reads components, resources, and events" {
     const world: *const ecs.World = &worldMut;
     try std.testing.expect(world.has(entity, Position));
     try std.testing.expectEqual(12, world.get(entity, Position).?.x);
-    try std.testing.expectEqual(entity, world.getIdentityEntity(Player).?);
-    try std.testing.expect(world.hasIdentity(Player));
-    try std.testing.expect(world.isIdentity(entity, Player));
-    try std.testing.expectEqual(12, world.getIdentity(Player, Position).?.x);
-    try std.testing.expect(!world.has(entity, Velocity));
+    try std.testing.expectEqual(12, world.getPtrConst(entity, Position).?.x);
+    try std.testing.expectEqual(entity, world.getIdentity(Player).?);
+    try std.testing.expect(world.getPtrConst(entity, Velocity) == null);
     try std.testing.expectEqual(1, world.values(Position).len);
     worldMut.remove(entity, Position);
-    try std.testing.expect(!world.has(entity, Position));
+    try std.testing.expectEqual(null, world.getPtrConst(entity, Position));
+    try std.testing.expectEqual(null, world.get(entity, Position));
     try std.testing.expectEqual(0, world.values(Position).len);
-    try std.testing.expectEqual(24, worldMut.getResourcePtr(Position).?.x);
+    try std.testing.expectEqual(24, world.getResourcePtrConst(Position).?.x);
     try std.testing.expectEqual(36, world.getEvent(Position)[0].x);
+    worldMut.getResourcePtr(Position).?.x = 48;
+    try std.testing.expectEqual(48, world.getResourcePtrConst(Position).?.x);
+    worldMut.removeResource(Position);
+    try std.testing.expectEqual(null, world.getResourcePtrConst(Position));
 }
 
 test "save and load versioned world" {
@@ -499,7 +514,7 @@ test "save and load versioned world" {
     try std.testing.expectEqual(12, loaded.get(entity, Position).?.x);
     try std.testing.expectEqual(34, loaded.get(entity, Position).?.y);
     try std.testing.expect(loaded.has(entity, Player));
-    try std.testing.expectEqual(entity, loaded.getIdentityEntity(Player).?);
+    try std.testing.expectEqual(entity, loaded.getIdentity(Player).?);
     try std.testing.expectEqual(9, loaded.getResourcePtr(Clock).?.hour);
     try std.testing.expectEqual(7, loaded.getEvent(SoundPlay)[0].id);
     try std.testing.expectEqual(removed, loaded.createEntity());
