@@ -231,11 +231,11 @@ clock.hour += 1;
 world.removeResource(Inventory);
 ```
 
-When resetting a world, `resetKeepResources` keeps resources of the selected
-types. Components are cleared.
+When resetting a world, `resetKeepResources` keeps all resources.
+Components, events, and entities are cleared.
 
 ```zig
-world.resetKeepResources(.{ Clock, Inventory });
+world.resetKeepResources();
 ```
 
 ## Event

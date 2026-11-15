@@ -225,10 +225,10 @@ clock.hour += 1;
 world.removeResource(Inventory);
 ```
 
-重置世界时，`resetKeepResources` 只保留指定类型的资源，普通组件会清除。
+重置世界时，`resetKeepResources` 保留全部资源，清除组件、事件和实体。
 
 ```zig
-world.resetKeepResources(.{ Clock, Inventory });
+world.resetKeepResources();
 ```
 
 ## 事件

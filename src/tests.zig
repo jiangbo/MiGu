@@ -398,7 +398,7 @@ test "resource is separate from component and holds one value" {
     try std.testing.expectEqual(7, world.get(entity, Clock).?.hour);
 }
 
-test "reset keep resources drops components of the same type" {
+test "reset keeps all resources and drops others" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
 
@@ -410,8 +410,18 @@ test "reset keep resources drops components of the same type" {
     const enemy = world.createEntity();
     world.add(enemy, Enemy{});
 
-    world.resetKeepResources(.{ Clock, Inventory });
+    world.addResource(Player{});
+    world.addEvent(Clock{ .hour = 11 });
+    const handle = world.entities.to(enemy);
+    const clock = world.getResourcePtr(Clock).?;
+    world.resetKeepResources();
 
+    try std.testing.expectEqual(clock, world.getResourcePtr(Clock).?);
+    try std.testing.expect(world.getResourcePtr(Player) != null);
+    try std.testing.expectEqual(0, world.getEvent(Clock).len);
+    try std.testing.expectEqual(null, world.entities.get(handle));
+    try std.testing.expectEqual(0, world.createEntity());
+    world.resetKeepResources();
     try std.testing.expectEqual(9, world.getResourcePtr(Clock).?.hour);
     try std.testing.expectEqual(12, world.getResourcePtr(Inventory).?.gold);
     try std.testing.expectEqual(0, world.values(Clock).len);
@@ -518,6 +528,11 @@ test "save and load versioned world" {
     try std.testing.expectEqual(9, loaded.getResourcePtr(Clock).?.hour);
     try std.testing.expectEqual(7, loaded.getEvent(SoundPlay)[0].id);
     try std.testing.expectEqual(removed, loaded.createEntity());
+
+    loaded.resetKeepResources();
+    try std.testing.expectEqual(9, loaded.getResourcePtr(Clock).?.hour);
+    try std.testing.expectEqual(0, loaded.values(Position).len);
+    try std.testing.expectEqual(0, loaded.getEvent(SoundPlay).len);
 }
 
 test "load rejects unsupported and incomplete versions" {

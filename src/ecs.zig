@@ -14,7 +14,7 @@ fn hasEntity(slice: []const u16, entity: u16) bool {
 pub const Version = u16;
 pub const Handle = struct { entity: u16, version: Version };
 
-const Kind = enum { component, event, resource };
+const Kind = enum(u8) { component, event, resource };
 
 const Entities = struct {
     versions: std.ArrayList(Version) = .empty,
@@ -70,6 +70,7 @@ const Entities = struct {
 
 fn Store(V: type) type {
     return struct {
+        kind: Kind,
         sparse: []u16 = &.{},
         dense: [*]u16 = @ptrFromInt(@alignOf(u16)),
         values: [*]V = @ptrFromInt(@alignOf(V)),
@@ -98,7 +99,7 @@ fn Store(V: type) type {
             }
 
             if (entity >= self.sparse.len) try self.growSparse(gpa, entity + 1);
-            if (self.len >= self.valueCap) try self.growValue(gpa, false);
+            if (self.len >= self.valueCap) try self.growValue(gpa);
             if (self.len >= self.denseCap) try self.growDense(gpa);
 
             self.dense[self.len] = entity;
@@ -107,8 +108,8 @@ fn Store(V: type) type {
             self.len += 1;
         }
 
-        fn appendValue(self: *@This(), gpa: Allocator, v: V, single: bool) Oom!void {
-            if (self.len >= self.valueCap) try self.growValue(gpa, single);
+        fn appendValue(self: *@This(), gpa: Allocator, v: V) Oom!void {
+            if (self.len >= self.valueCap) try self.growValue(gpa);
             self.values[self.len] = v;
             self.len += 1;
         }
@@ -120,10 +121,10 @@ fn Store(V: type) type {
             self.sparse = sparse;
         }
 
-        fn growValue(self: *@This(), gpa: Allocator, single: bool) Oom!void {
+        fn growValue(self: *@This(), gpa: Allocator) Oom!void {
             if (@sizeOf(V) == 0) return;
             const grow = std.ArrayList(V).growCapacity;
-            const cap = if (single) 1 else grow(@as(usize, self.len) + 1);
+            const cap = if (self.kind == .resource) 1 else grow(self.valueCap + 1);
             const values = try gpa.realloc(self.values[0..self.valueCap], cap);
             self.values = values.ptr;
             self.valueCap = @intCast(values.len);
@@ -200,6 +201,7 @@ pub fn save(world: *const World, writer: *std.Io.Writer) !void {
     while (iterator.next()) |entry| {
         const store = entry.value_ptr;
         try writer.writeInt(TypeId, entry.key_ptr.*, .little);
+        try writer.writeInt(u8, @backingInt(store.kind), .little);
         try writer.writeInt(u16, store.len, .little);
         try writer.writeInt(u16, store.identity, .little);
         try writer.writeInt(u16, store.valueSize, .little);
@@ -231,8 +233,9 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
 
     for (0..try reader.takeInt(u32, .little)) |_| {
         const id = try reader.takeInt(TypeId, .little);
+        const kind = try reader.takeEnum(Kind, .little);
         const store = (try world.map.getOrPut(gpa, id)).value_ptr;
-        store.* = .{};
+        store.* = .{ .kind = kind };
         store.len = try reader.takeInt(u16, .little);
         store.identity = try reader.takeInt(u16, .little);
         store.valueSize = try reader.takeInt(u16, .little);
@@ -311,20 +314,15 @@ pub const World = struct {
         self.* = .init(self.allocator);
     }
 
-    pub fn resetKeepResources(self: *World, Types: anytype) void {
-        self.tryResetKeepResources(Types) catch @panic("oom");
-    }
-
-    pub fn tryResetKeepResources(self: *World, Types: anytype) Oom!void {
-        var new = World.init(self.allocator);
-        try new.map.ensureTotalCapacity(new.allocator, Types.len);
-        inline for (Types) |T| {
-            if (self.map.fetchRemove(id(T, .resource))) |r| {
-                new.map.putAssumeCapacityNoClobber(r.key, r.value);
-            }
+    pub fn resetKeepResources(self: *World) void {
+        var iterator = self.map.iterator();
+        while (iterator.next()) |entry| {
+            if (entry.value_ptr.kind == .resource) continue;
+            entry.value_ptr.deinit(self.allocator);
+            self.map.removeByPtr(entry.key_ptr);
         }
-        self.deinit();
-        self.* = new;
+        self.entities.deinit(self.allocator);
+        self.entities = .{};
     }
 
     pub fn tryCreateEntity(self: *World) EntityError!u16 {
@@ -339,7 +337,7 @@ pub const World = struct {
         if (@TypeOf(value) == type) @compileError("use T{} instead of T");
         var map = try self.tryAssure(@TypeOf(value), .event);
         if (map.len == invalid) return error.MaxEvent;
-        try map.appendValue(self.allocator, value, false);
+        try map.appendValue(self.allocator, value);
     }
 
     pub fn tryAddResource(self: *World, value: anytype) Oom!void {
@@ -347,7 +345,7 @@ pub const World = struct {
         const T = @TypeOf(value);
         var map = try self.tryAssure(T, .resource);
         if (map.len == 0) {
-            try map.appendValue(self.allocator, value, true);
+            try map.appendValue(self.allocator, value);
         } else {
             map.values[0] = value;
         }
@@ -362,7 +360,7 @@ pub const World = struct {
     fn tryAssure(self: *World, T: type, comptime k: Kind) Oom!*Store(T) {
         const result = try self.map.getOrPut(self.allocator, id(T, k));
         const map: *Store(T) = @ptrCast(@alignCast(result.value_ptr));
-        if (!result.found_existing) map.* = .{};
+        if (!result.found_existing) map.* = .{ .kind = k };
         return map;
     }
 
