@@ -68,7 +68,7 @@ const Entities = struct {
     }
 };
 
-fn Store(V: type, comptime kind: Kind) type {
+fn Store(V: type) type {
     return struct {
         sparse: []u16 = &.{},
         dense: [*]u16 = @ptrFromInt(@alignOf(u16)),
@@ -98,7 +98,7 @@ fn Store(V: type, comptime kind: Kind) type {
             }
 
             if (entity >= self.sparse.len) try self.growSparse(gpa, entity + 1);
-            if (self.len >= self.valueCap) try self.growValue(gpa);
+            if (self.len >= self.valueCap) try self.growValue(gpa, false);
             if (self.len >= self.denseCap) try self.growDense(gpa);
 
             self.dense[self.len] = entity;
@@ -107,8 +107,8 @@ fn Store(V: type, comptime kind: Kind) type {
             self.len += 1;
         }
 
-        fn appendValue(self: *@This(), gpa: Allocator, v: V) Oom!void {
-            if (self.len >= self.valueCap) try self.growValue(gpa);
+        fn appendValue(self: *@This(), gpa: Allocator, v: V, single: bool) Oom!void {
+            if (self.len >= self.valueCap) try self.growValue(gpa, single);
             self.values[self.len] = v;
             self.len += 1;
         }
@@ -120,10 +120,10 @@ fn Store(V: type, comptime kind: Kind) type {
             self.sparse = sparse;
         }
 
-        fn growValue(self: *@This(), gpa: Allocator) Oom!void {
+        fn growValue(self: *@This(), gpa: Allocator, single: bool) Oom!void {
             if (@sizeOf(V) == 0) return;
-            var cap = std.ArrayList(V).growCapacity(@as(usize, self.len) + 1);
-            if (kind == .resource) cap = 1;
+            const grow = std.ArrayList(V).growCapacity;
+            const cap = if (single) 1 else grow(@as(usize, self.len) + 1);
             const values = try gpa.realloc(self.values[0..self.valueCap], cap);
             self.values = values.ptr;
             self.valueCap = @intCast(values.len);
@@ -263,7 +263,7 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
 pub const World = struct {
     allocator: Allocator,
     entities: Entities = .{},
-    map: std.AutoHashMapUnmanaged(TypeId, Store(u8, .component)) = .empty,
+    map: std.AutoHashMapUnmanaged(TypeId, Store(u8)) = .empty,
 
     fn id(T: type, comptime kind: Kind) TypeId {
         const hash = std.hash.Fnv1a_64.hash;
@@ -295,7 +295,7 @@ pub const World = struct {
     }
 
     pub fn init(allocator: std.mem.Allocator) World {
-        comptime std.debug.assert(@sizeOf(Store(u8, .component)) <= 64);
+        comptime std.debug.assert(@sizeOf(Store(u8)) <= 64);
         return .{ .allocator = allocator };
     }
 
@@ -339,7 +339,7 @@ pub const World = struct {
         if (@TypeOf(value) == type) @compileError("use T{} instead of T");
         var map = try self.tryAssure(@TypeOf(value), .event);
         if (map.len == invalid) return error.MaxEvent;
-        try map.appendValue(self.allocator, value);
+        try map.appendValue(self.allocator, value, false);
     }
 
     pub fn tryAddResource(self: *World, value: anytype) Oom!void {
@@ -347,7 +347,7 @@ pub const World = struct {
         const T = @TypeOf(value);
         var map = try self.tryAssure(T, .resource);
         if (map.len == 0) {
-            try map.appendValue(self.allocator, value);
+            try map.appendValue(self.allocator, value, true);
         } else {
             map.values[0] = value;
         }
@@ -359,9 +359,9 @@ pub const World = struct {
         try map.add(self.allocator, entity, value);
     }
 
-    fn tryAssure(self: *World, T: type, comptime k: Kind) Oom!*Store(T, k) {
+    fn tryAssure(self: *World, T: type, comptime k: Kind) Oom!*Store(T) {
         const result = try self.map.getOrPut(self.allocator, id(T, k));
-        const map: *Store(T, k) = @ptrCast(@alignCast(result.value_ptr));
+        const map: *Store(T) = @ptrCast(@alignCast(result.value_ptr));
         if (!result.found_existing) map.* = .{};
         return map;
     }
@@ -465,13 +465,13 @@ pub const World = struct {
         if (removed) |*r| r.value.deinit(self.allocator);
     }
 
-    pub fn getStore(self: *const World, T: type) ?Store(T, .component) {
+    pub fn getStore(self: *const World, T: type) ?Store(T) {
         const map = self.map.get(id(T, .component)) orelse return null;
-        const typed: *const Store(T, .component) = @ptrCast(@alignCast(&map));
+        const typed: *const Store(T) = @ptrCast(@alignCast(&map));
         return typed.*;
     }
 
-    fn store(self: *World, T: type, comptime kind: Kind) ?*Store(T, kind) {
+    fn store(self: *World, T: type, comptime kind: Kind) ?*Store(T) {
         const map = self.map.getPtr(id(T, kind)) orelse return null;
         return @ptrCast(@alignCast(map));
     }
