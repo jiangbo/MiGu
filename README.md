@@ -134,10 +134,6 @@ while (query.next()) |row| {
 }
 ```
 
-For a known entity, use `query.get(entity, T)` or `query.getPtr(entity, T)`.
-All required component stores must exist, and the entity must have `T`.
-These methods do not recheck query filters.
-
 Use `queryNot` to exclude components.
 
 ```zig

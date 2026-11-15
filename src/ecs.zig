@@ -398,7 +398,7 @@ pub const World = struct {
     }
 
     pub fn getIdentityEntity(self: *const World, T: type) ?u16 {
-        const map = self.getStore(T) orelse return null;
+        const map = self.storeConst(T, .component) orelse return null;
         return if (map.identity == invalid) null else map.identity;
     }
 
@@ -437,8 +437,8 @@ pub const World = struct {
         };
     }
 
-    pub fn getEvent(self: *World, T: type) []T {
-        const map = self.store(T, .event) orelse return &.{};
+    pub fn getEvent(self: *const World, T: type) []const T {
+        const map = self.storeConst(T, .event) orelse return &.{};
         return map.values[0..map.len];
     }
 
@@ -465,10 +465,9 @@ pub const World = struct {
         if (removed) |*r| r.value.deinit(self.allocator);
     }
 
-    pub fn getStore(self: *const World, T: type) ?Store(T) {
-        const map = self.map.get(id(T, .component)) orelse return null;
-        const typed: *const Store(T) = @ptrCast(@alignCast(&map));
-        return typed.*;
+    fn storeConst(self: *const World, T: type, comptime k: Kind) ?*const Store(T) {
+        const map = self.map.getPtr(id(T, k)) orelse return null;
+        return @ptrCast(@alignCast(map));
     }
 
     fn store(self: *World, T: type, comptime kind: Kind) ?*Store(T) {
@@ -477,12 +476,12 @@ pub const World = struct {
     }
 
     pub fn has(self: *const World, entity: u16, T: type) bool {
-        const map = self.getStore(T) orelse return false;
+        const map = self.storeConst(T, .component) orelse return false;
         return hasEntity(map.sparse, entity);
     }
 
     pub fn get(self: *const World, entity: u16, T: type) ?T {
-        const map = self.getStore(T) orelse return null;
+        const map = self.storeConst(T, .component) orelse return null;
         if (!hasEntity(map.sparse, entity)) return null;
         return map.values[map.sparse[entity]];
     }
@@ -501,8 +500,8 @@ pub const World = struct {
         inline for (bundle) |value| self.add(entity, value);
     }
 
-    pub fn values(self: *World, T: type) []T {
-        const map = self.store(T, .component) orelse return &.{};
+    pub fn values(self: *const World, T: type) []const T {
+        const map = self.storeConst(T, .component) orelse return &.{};
         return map.values[0..map.len];
     }
 
@@ -630,19 +629,6 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
             } else false;
             if (inQuery) std.debug.assert(world.has(e, @TypeOf(v)));
             world.add(e, v);
-        }
-
-        pub fn get(self: *const @This(), entity: Entity, T: type) T {
-            return self.getPtr(entity, T).*;
-        }
-
-        pub fn getPtr(self: *const @This(), entity: Entity, T: type) *T {
-            const i = blk: inline for (All, 0..) |Comp, i| {
-                if (Comp == T) break :blk i;
-            } else @compileError(@typeName(T) ++ " is not in query type");
-            const values: [*]T = @ptrCast(@alignCast(self.values[i]));
-            std.debug.assert(hasEntity(self.sparse[i], entity));
-            return &values[self.sparse[i][entity]];
         }
 
         pub const Row = struct {

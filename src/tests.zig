@@ -58,7 +58,6 @@ test "create entity and add get remove component" {
     try std.testing.expect(!world.has(entity, Position));
 }
 
-// 连续扩容实体、组件和事件存储后，原有数据仍能正确读取。
 test "storage keeps values after growth" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
@@ -128,8 +127,7 @@ test "remove many keeps other components and entities" {
     try std.testing.expect(world.has(second, Velocity));
 }
 
-// 删除搬移后，各组件的位置不同；直接取值不筛选，也不推进游标。
-test "query gets components by entity after removal" {
+test "query not excludes components after removal" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
 
@@ -145,15 +143,8 @@ test "query gets components by entity after removal" {
     world.remove(first, Position);
 
     var query = world.queryNot(.{ Position, Velocity }, .{Hidden});
-    try std.testing.expectEqual(30, query.get(third, Position).x);
-    query.getPtr(third, Position).x += query.get(third, Velocity).x;
-    try std.testing.expectEqual(33, world.get(third, Position).?.x);
-    try std.testing.expectEqual(20, query.get(second, Position).x);
     try std.testing.expectEqual(second, query.next().?.entity);
     try std.testing.expectEqual(null, query.next());
-
-    const single = world.query(.{Position});
-    try std.testing.expectEqual(33, single.get(third, Position).x);
 }
 
 test "query supports slice component" {
@@ -164,7 +155,6 @@ test "query supports slice component" {
     world.add(entity, @as(Text, "hello"));
 
     var query = world.query(.{Text});
-    try std.testing.expectEqualStrings("hello", query.get(entity, Text));
     const found = query.next().?;
     try std.testing.expectEqualStrings("hello", found.get(Text));
 
@@ -461,32 +451,29 @@ fn lessThanRender(lhs: Render, rhs: Render) bool {
     return lhs.layer < rhs.layer;
 }
 
-test "const world reads typed store copies" {
-    var world = ecs.World.init(std.testing.allocator);
-    defer world.deinit();
+test "const world reads components, resources, and events" {
+    var worldMut = ecs.World.init(std.testing.allocator);
+    defer worldMut.deinit();
 
-    const entity = world.createEntity();
-    world.add(entity, Position{ .x = 12 });
-    world.setIdentity(entity, Player);
-    world.addResource(Position{ .x = 24 });
-    world.addEvent(Position{ .x = 36 });
+    const entity = worldMut.createEntity();
+    worldMut.add(entity, Position{ .x = 12 });
+    worldMut.setIdentity(entity, Player);
+    worldMut.addResource(Position{ .x = 24 });
+    worldMut.addEvent(Position{ .x = 36 });
 
-    const view: *const ecs.World = &world;
-    try std.testing.expect(view.has(entity, Position));
-    try std.testing.expectEqual(12, view.get(entity, Position).?.x);
-    try std.testing.expectEqual(entity, view.getIdentityEntity(Player).?);
-    try std.testing.expect(view.hasIdentity(Player));
-    try std.testing.expect(view.isIdentity(entity, Player));
-    try std.testing.expectEqual(12, view.getIdentity(Player, Position).?.x);
-    try std.testing.expect(view.getStore(Velocity) == null);
-
-    var store = view.getStore(Position).?;
-    try std.testing.expectEqual(12, store.values[store.sparse[entity]].x);
-    store.len = 0;
-    try std.testing.expectEqual(1, view.getStore(Position).?.len);
-    world.remove(entity, Position);
-    try std.testing.expectEqual(0, view.getStore(Position).?.len);
-    try std.testing.expectEqual(24, world.getResourcePtr(Position).?.x);
+    const world: *const ecs.World = &worldMut;
+    try std.testing.expect(world.has(entity, Position));
+    try std.testing.expectEqual(12, world.get(entity, Position).?.x);
+    try std.testing.expectEqual(entity, world.getIdentityEntity(Player).?);
+    try std.testing.expect(world.hasIdentity(Player));
+    try std.testing.expect(world.isIdentity(entity, Player));
+    try std.testing.expectEqual(12, world.getIdentity(Player, Position).?.x);
+    try std.testing.expect(!world.has(entity, Velocity));
+    try std.testing.expectEqual(1, world.values(Position).len);
+    worldMut.remove(entity, Position);
+    try std.testing.expect(!world.has(entity, Position));
+    try std.testing.expectEqual(0, world.values(Position).len);
+    try std.testing.expectEqual(24, worldMut.getResourcePtr(Position).?.x);
     try std.testing.expectEqual(36, world.getEvent(Position)[0].x);
 }
 
@@ -518,7 +505,6 @@ test "save and load versioned world" {
     try std.testing.expectEqual(removed, loaded.createEntity());
 }
 
-// Reject incompatible headers before trying to read or allocate the body.
 test "load rejects unsupported and incomplete versions" {
     for ([_][4]u8{ .{ 0, 0, 0, 0 }, .{ 2, 0, 0, 0 } }) |header| {
         var reader = std.Io.Reader.fixed(&header);

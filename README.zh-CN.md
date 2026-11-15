@@ -130,9 +130,6 @@ while (query.next()) |row| {
 }
 ```
 
-已知实体编号时，可用 `query.get(entity, T)` 和 `query.getPtr(entity, T)` 直接取组件。
-调用方须保证查询所需存储已存在，且实体拥有 `T`；这两个方法不重新检查查询条件。
-
 `queryNot` 用来排除组件。
 
 ```zig
