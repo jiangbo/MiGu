@@ -458,7 +458,7 @@ test "sort and query by component order" {
     world.add(back, Position{ .x = 10 });
     world.add(back, Render{ .layer = 1, .depth = 10 });
 
-    world.sort(Render, lessThanRender);
+    world.sort(Render, {}, lessThanRender);
 
     var query = world.queryBy(Render, .{Position}, .{});
     const backRow = query.next().?;
@@ -486,7 +486,7 @@ test "handle rejects destroyed entity after id reuse" {
     try std.testing.expectEqual(null, world.entities.get(handle));
 }
 
-fn lessThanRender(lhs: Render, rhs: Render) bool {
+fn lessThanRender(_: void, lhs: Render, rhs: Render) bool {
     if (lhs.layer == rhs.layer) return lhs.depth < rhs.depth;
     return lhs.layer < rhs.layer;
 }

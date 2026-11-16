@@ -171,7 +171,7 @@ fn Store(V: type) type {
             @memcpy(self.values[sz * index ..][0..sz], src[0..sz]);
         }
 
-        fn sort(self: *@This(), lessFn: fn (V, V) bool) void {
+        fn sort(self: *@This(), c: anytype, less: fn (@TypeOf(c), V, V) bool) void {
             if (self.len <= 1 or self.valueSize == 0) return;
 
             const sparse = self.sparse;
@@ -179,7 +179,7 @@ fn Store(V: type) type {
             const v = self.values[0..self.len];
             for (1..v.len) |i| {
                 var j = i;
-                while (j > 0 and lessFn(v[j], v[j - 1])) : (j -= 1) {
+                while (j > 0 and less(c, v[j], v[j - 1])) : (j -= 1) {
                     std.mem.swap(V, &v[j], &v[j - 1]);
                     const lhs = &dense[j];
                     const rhs = &dense[j - 1];
@@ -513,8 +513,8 @@ pub const World = struct {
         return map.values[0..map.len];
     }
 
-    pub fn sort(self: *World, T: type, lessFn: fn (T, T) bool) void {
-        if (self.store(T, .component)) |map| map.sort(lessFn);
+    pub fn sort(s: *World, T: type, c: anytype, f: fn (@TypeOf(c), T, T) bool) void {
+        if (s.store(T, .component)) |map| map.sort(c, f);
     }
 
     pub fn remove(self: *World, entity: u16, T: type) void {
@@ -548,10 +548,7 @@ pub const World = struct {
         return self.queryNot(All, .{});
     }
 
-    // zig fmt: off
-    pub fn queryNot(self: *const World, All: anytype, None: anytype)
-        Query(All, None) {
-    // zig fmt: on
+    pub fn queryNot(self: *const World, All: anytype, None: anytype) Query(All, None) {
         comptime std.debug.assert(All.len > 0);
 
         var result: Query(All, None) = .{};
@@ -571,8 +568,8 @@ pub const World = struct {
     }
 
     // zig fmt: off
-    pub fn queryBy(self: *const World, By: type, All: anytype,
-        None: anytype) Query(.{By} ++ All, None) {
+    pub fn queryBy(self: *const World, By: type, All: anytype, None: anytype)
+        Query(.{By} ++ All, None) {
     // zig fmt: on
         var rs: Query(.{By} ++ All, None) = .{};
         const by = self.storeConst(By, .component) orelse return rs;

@@ -140,7 +140,7 @@ var query = world.queryNot(.{ Position, Sprite }, .{Hidden});
 需要固定遍历顺序时，使用 `queryBy`。
 
 ```zig
-world.sort(Render, lessThanRender);
+world.sort(Render, {}, lessThanRender);
 
 var query = world.queryBy(Render, .{ Position, Sprite }, .{Hidden});
 ```

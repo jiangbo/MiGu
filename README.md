@@ -144,7 +144,7 @@ var query = world.queryNot(.{ Position, Sprite }, .{Hidden});
 Use `queryBy` when iteration order must follow a specific component store.
 
 ```zig
-world.sort(Render, lessThanRender);
+world.sort(Render, {}, lessThanRender);
 
 var query = world.queryBy(Render, .{ Position, Sprite }, .{Hidden});
 ```
