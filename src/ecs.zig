@@ -44,7 +44,6 @@ const Entities = struct {
     }
 
     fn destroy(self: *Entities, entity: u16) void {
-        std.debug.assert(self.versions.items[entity] % 2 == 0);
         self.versions.items[entity] +%= 1;
         self.deleted.appendAssumeCapacity(entity);
     }
@@ -372,6 +371,10 @@ pub const World = struct {
     }
 
     pub fn destroyEntity(self: *World, entity: u16) void {
+        const versions = self.entities.versions.items;
+        std.debug.assert(entity < versions.len);
+        std.debug.assert(versions[entity] % 2 == 0);
+
         var iterator = self.map.valueIterator();
         while (iterator.next()) |map| {
             map.remove(entity);
