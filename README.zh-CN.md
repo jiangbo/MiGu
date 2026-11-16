@@ -95,6 +95,9 @@ const position = world.get(entity, Position).?;
 const position_ptr = world.getPtr(entity, Position).?;
 ```
 
+与 `HashMap.getPtr` 类似，MiGu 采用浅层 const：`*const World` 仍可返回
+指向组件、资源和事件的可变指针或切片，`Query` 也遵循这一规则。
+
 删除组件：
 
 ```zig

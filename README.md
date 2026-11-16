@@ -99,6 +99,10 @@ const position = world.get(entity, Position).?;
 const position_ptr = world.getPtr(entity, Position).?;
 ```
 
+Like `HashMap.getPtr`, MiGu uses shallow const: `*const World` can still return
+mutable pointers or slices to components, resources, and events.
+`Query` follows the same rule.
+
 Remove components:
 
 ```zig

@@ -491,7 +491,7 @@ fn lessThanRender(lhs: Render, rhs: Render) bool {
     return lhs.layer < rhs.layer;
 }
 
-test "const world reads components, resources, and events" {
+test "const world can modify stored values" {
     var worldMut = ecs.World.init(std.testing.allocator);
     defer worldMut.deinit();
 
@@ -510,12 +510,16 @@ test "const world reads components, resources, and events" {
     try std.testing.expectEqual(entity, world.getIdentity(Player).?);
     try std.testing.expect(world.getPtr(entity, Velocity) == null);
     try std.testing.expectEqual(1, world.values(Position).len);
+    world.values(Position)[0].x = 20;
+    try std.testing.expectEqual(20, world.get(entity, Position).?.x);
     worldMut.remove(entity, Position);
     try std.testing.expectEqual(null, world.getPtr(entity, Position));
     try std.testing.expectEqual(null, world.get(entity, Position));
     try std.testing.expectEqual(0, world.values(Position).len);
     try std.testing.expectEqual(24, world.getResourcePtr(Position).?.x);
     try std.testing.expectEqual(36, world.getEvent(Position)[0].x);
+    world.getEvent(Position)[0].x = 40;
+    try std.testing.expectEqual(40, world.getEvent(Position)[0].x);
     world.getResourcePtr(Position).?.x = 48;
     try std.testing.expectEqual(48, world.getResourcePtr(Position).?.x);
     worldMut.removeResource(Position);

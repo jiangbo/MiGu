@@ -263,8 +263,6 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
     return world;
 }
 
-/// Like HashMap.getPtr, const World can return mutable pointers
-/// to components and resources, including through query rows.
 pub const World = struct {
     allocator: Allocator,
     entities: Entities = .{},
@@ -425,7 +423,7 @@ pub const World = struct {
         };
     }
 
-    pub fn getEvent(self: *const World, T: type) []const T {
+    pub fn getEvent(self: *const World, T: type) []T {
         const map = self.storeConst(T, .event) orelse return &.{};
         return map.values[0..map.len];
     }
@@ -486,7 +484,7 @@ pub const World = struct {
         inline for (bundle) |value| self.add(entity, value);
     }
 
-    pub fn values(self: *const World, T: type) []const T {
+    pub fn values(self: *const World, T: type) []T {
         const map = self.storeConst(T, .component) orelse return &.{};
         return map.values[0..map.len];
     }
