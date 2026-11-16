@@ -531,12 +531,12 @@ pub const World = struct {
         if (self.store(T, .component)) |map| map.clear();
     }
 
-    pub fn query(self: *World, All: anytype) Query(All, .{}) {
+    pub fn query(self: *const World, All: anytype) Query(All, .{}) {
         return self.queryNot(All, .{});
     }
 
     // zig fmt: off
-    pub fn queryNot(self: *World, All: anytype, None: anytype)
+    pub fn queryNot(self: *const World, All: anytype, None: anytype)
         Query(All, None) {
     // zig fmt: on
         comptime std.debug.assert(All.len > 0);
@@ -544,7 +544,7 @@ pub const World = struct {
         var result: Query(All, None) = .{};
         var minCount: usize = std.math.maxInt(usize);
         inline for (All, &result.sparse, &result.values) |T, *s, *v| {
-            const map = self.store(T, .component) orelse return .{};
+            const map = self.storeConst(T, .component) orelse return .{};
             s.*, v.* = .{ map.sparse, @ptrCast(map.values) };
             if (map.len < minCount) {
                 minCount = map.len;
@@ -552,25 +552,25 @@ pub const World = struct {
             }
         }
         inline for (None, &result.none) |T, *none| {
-            if (self.store(T, .component)) |s| none.* = s.sparse;
+            if (self.storeConst(T, .component)) |s| none.* = s.sparse;
         }
         return result;
     }
 
     // zig fmt: off
-    pub fn queryBy(self: *World, By: type, All: anytype,
+    pub fn queryBy(self: *const World, By: type, All: anytype,
         None: anytype) Query(.{By} ++ All, None) {
     // zig fmt: on
         var rs: Query(.{By} ++ All, None) = .{};
-        const by = self.store(By, .component) orelse return rs;
+        const by = self.storeConst(By, .component) orelse return rs;
         rs.dense = by.dense[0..by.len];
 
         inline for (.{By} ++ All, &rs.sparse, &rs.values) |T, *s, *v| {
-            const map = self.store(T, .component) orelse return .{};
+            const map = self.storeConst(T, .component) orelse return .{};
             s.*, v.* = .{ map.sparse, @ptrCast(map.values) };
         }
         inline for (None, &rs.none) |T, *none| {
-            if (self.store(T, .component)) |s| none.* = s.sparse;
+            if (self.storeConst(T, .component)) |s| none.* = s.sparse;
         }
         return rs;
     }
@@ -632,6 +632,10 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
 
             pub fn get(self: @This(), T: type) T {
                 return self.getPtr(T).*;
+            }
+
+            pub fn getPtrConst(self: @This(), T: type) *const T {
+                return self.getPtr(T);
             }
 
             pub fn getPtr(self: @This(), T: type) *T {

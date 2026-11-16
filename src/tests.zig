@@ -88,6 +88,24 @@ test "storage keeps values after growth" {
     }
 }
 
+test "query entry points accept const world" {
+    var worldMut = ecs.World.init(std.testing.allocator);
+    defer worldMut.deinit();
+
+    const entity = worldMut.createEntity();
+    worldMut.add(entity, Position{ .x = 10 });
+    const world: *const ecs.World = &worldMut;
+
+    var query = world.query(.{Position});
+    query.next().?.getPtr(Position).x = 20;
+    var filtered = world.queryNot(.{Position}, .{Hidden});
+    try std.testing.expectEqual(entity, filtered.next().?.entity);
+    var ordered = world.queryBy(Position, .{}, .{});
+    const position = ordered.next().?.getPtrConst(Position);
+    try std.testing.expect(@TypeOf(position) == *const Position);
+    try std.testing.expectEqual(20, position.x);
+}
+
 test "add many and query components" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
