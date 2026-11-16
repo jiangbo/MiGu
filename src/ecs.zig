@@ -32,9 +32,9 @@ const Entities = struct {
         }
 
         if (self.versions.items.len == invalid) return error.MaxEntity;
-        const count = self.versions.items.len + 1;
-        if (count > self.versions.capacity) {
-            const cap = @min(std.ArrayList(Version).growCapacity(count), invalid);
+        const len = self.versions.items.len + 1;
+        if (len > self.versions.capacity) {
+            const cap = @min(std.ArrayList(Version).growCapacity(len), invalid);
             try self.deleted.ensureTotalCapacityPrecise(gpa, cap);
             try self.versions.ensureTotalCapacityPrecise(gpa, cap);
         }
@@ -64,6 +64,10 @@ const Entities = struct {
     pub fn get(self: *const Entities, handle: ?Handle) ?u16 {
         const id = handle orelse return null;
         return if (self.isAlive(id)) id.entity else null;
+    }
+
+    pub fn count(self: *const Entities) usize {
+        return self.versions.items.len - self.deleted.items.len;
     }
 
     pub fn iterator(self: *const Entities) Iterator {
@@ -342,6 +346,14 @@ pub const World = struct {
         try map.add(self.allocator, entity, value);
     }
 
+    pub fn tryGetOrAdd(self: *World, entity: u16, v: anytype) Oom!*@TypeOf(v) {
+        const map = try self.tryAssure(@TypeOf(v), .component);
+        if (!hasEntity(map.sparse, entity)) {
+            try map.add(self.allocator, entity, v);
+        }
+        return &map.values[map.sparse[entity]];
+    }
+
     fn tryAssure(self: *World, T: type, comptime k: Kind) Oom!*Store(T) {
         const result = try self.map.getOrPut(self.allocator, typeId(T, k));
         const map: *Store(T) = @ptrCast(@alignCast(result.value_ptr));
@@ -473,6 +485,10 @@ pub const World = struct {
 
     pub fn add(self: *World, entity: u16, value: anytype) void {
         self.tryAdd(entity, value) catch @panic("oom");
+    }
+
+    pub fn getOrAdd(self: *World, entity: u16, v: anytype) *@TypeOf(v) {
+        return self.tryGetOrAdd(entity, v) catch @panic("oom");
     }
 
     pub fn addMany(self: *World, entity: u16, bundle: anytype) void {
