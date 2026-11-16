@@ -7,7 +7,7 @@ MiGu is a tiny ECS for Zig.
 > [!WARNING]
 > Under development. API stability is not guaranteed.
 
-Requires Zig 0.17.1 or newer. Run tests with `zig build test` or
+Requires Zig 0.17.1. Run tests with `zig build test` or
 `zig build test -Doptimize=safe`.
 
 It is designed for small single-threaded games and tools. Entity ids are
@@ -58,8 +58,8 @@ fn move(world: *ecs.World, delta: f32) void {
     }
 }
 
-test "move entity" {
-    var world = ecs.World.init(std.testing.allocator);
+pub fn main(init: std.process.Init) void {
+    var world = ecs.World.init(init.gpa);
     defer world.deinit();
 
     const entity = world.createEntity();
@@ -69,8 +69,7 @@ test "move entity" {
     move(&world, 2);
 
     const position = world.get(entity, Position).?;
-    try std.testing.expectEqual(20, position.x);
-    try std.testing.expectEqual(16, position.y);
+    std.debug.print("position: ({d}, {d})\n", .{ position.x, position.y });
 }
 ```
 

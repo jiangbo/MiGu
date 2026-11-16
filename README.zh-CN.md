@@ -5,9 +5,7 @@ MiGu 是一个小型 Zig ECS。
 > [!WARNING]
 > 功能开发中，不保证 API 稳定性。
 
-需要 Zig 0.17.1 或更新版本。使用 `zig build test` 或
-`zig build test -Doptimize=safe` 运行测试。
-
+需要 Zig 0.17.1。使用 `zig build test` 或 `zig build test -Doptimize=safe` 运行测试。
 它面向小型单线程游戏和工具。实体编号是 `u16`，所以最大实体数量有限。
 
 ## 安装
@@ -55,8 +53,8 @@ fn move(world: *ecs.World, delta: f32) void {
     }
 }
 
-test "move entity" {
-    var world = ecs.World.init(std.testing.allocator);
+pub fn main(init: std.process.Init) void {
+    var world = ecs.World.init(init.gpa);
     defer world.deinit();
 
     const entity = world.createEntity();
@@ -66,8 +64,7 @@ test "move entity" {
     move(&world, 2);
 
     const position = world.get(entity, Position).?;
-    try std.testing.expectEqual(20, position.x);
-    try std.testing.expectEqual(16, position.y);
+    std.debug.print("position: ({d}, {d})\n", .{ position.x, position.y });
 }
 ```
 
