@@ -522,35 +522,31 @@ pub const World = struct {
     }
 
     pub fn queryNot(self: *const World, All: anytype, None: anytype) Query(All, None) {
-        comptime std.debug.assert(All.len > 0);
-
-        var result: Query(All, None) = .{};
-        var minCount: usize = std.math.maxInt(usize);
-        inline for (All, &result.sparse, &result.values) |T, *s, *v| {
-            const map = self.storeConst(T, .component) orelse return .{};
-            s.*, v.* = .{ map.sparse, @ptrCast(map.values) };
-            if (map.len < minCount) {
-                minCount = map.len;
-                result.dense = map.dense[0..map.len];
-            }
-        }
-        inline for (None, &result.none) |T, *none| {
-            if (self.storeConst(T, .component)) |s| none.* = s.sparse;
-        }
-        return result;
+        return self.buildQuery(All, None, false);
     }
 
     // zig fmt: off
     pub fn queryBy(self: *const World, By: type, All: anytype, None: anytype)
         Query(.{By} ++ All, None) {
     // zig fmt: on
-        var rs: Query(.{By} ++ All, None) = .{};
-        const by = self.storeConst(By, .component) orelse return rs;
-        rs.dense = by.dense[0..by.len];
+        return self.buildQuery(.{By} ++ All, None, true);
+    }
 
-        inline for (.{By} ++ All, &rs.sparse, &rs.values) |T, *s, *v| {
+    // zig fmt: off
+    fn buildQuery(self: *const World, All: anytype, None: anytype,
+        comptime byFirst: bool) Query(All, None) {
+    // zig fmt: on
+        comptime std.debug.assert(All.len > 0);
+
+        var rs: Query(All, None) = .{};
+        var minCount: usize = std.math.maxInt(usize);
+        inline for (All, 0.., &rs.sparse, &rs.values) |T, i, *s, *v| {
             const map = self.storeConst(T, .component) orelse return .{};
             s.*, v.* = .{ map.sparse, @ptrCast(map.values) };
+            if (if (byFirst) i == 0 else map.len < minCount) {
+                minCount = map.len;
+                rs.dense = map.dense[0..map.len];
+            }
         }
         inline for (None, &rs.none) |T, *none| {
             if (self.storeConst(T, .component)) |s| none.* = s.sparse;
