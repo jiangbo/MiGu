@@ -634,10 +634,8 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
                 return self.getPtr(T).*;
             }
 
-            pub fn getPtrConst(self: @This(), T: type) *const T {
-                return self.getPtr(T);
-            }
-
+            /// Like HashMap.getPtr, a const World allows mutable components.
+            /// Const applies to the World, not to its stored components.
             pub fn getPtr(self: @This(), T: type) *T {
                 const i = blk: inline for (All, 0..) |Comp, i| {
                     if (Comp == T) break :blk i;

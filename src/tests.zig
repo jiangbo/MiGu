@@ -101,8 +101,8 @@ test "query entry points accept const world" {
     var filtered = world.queryNot(.{Position}, .{Hidden});
     try std.testing.expectEqual(entity, filtered.next().?.entity);
     var ordered = world.queryBy(Position, .{}, .{});
-    const position = ordered.next().?.getPtrConst(Position);
-    try std.testing.expect(@TypeOf(position) == *const Position);
+    const position = ordered.next().?.getPtr(Position);
+    try std.testing.expect(@TypeOf(position) == *Position);
     try std.testing.expectEqual(20, position.x);
 }
 
