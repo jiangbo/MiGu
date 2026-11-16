@@ -626,6 +626,7 @@ pub fn typeId(T: type, comptime kind: Kind) TypeId {
     const hash = std.hash.Fnv1a_64.hash;
     const base: TypeId = comptime blk: {
         switch (@typeInfo(T)) {
+            .optional => @compileError("type must not be optional"),
             .@"struct", .@"union", .@"enum", .@"opaque" => {
                 if (@hasDecl(T, "cid")) break :blk T.cid;
             },

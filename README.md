@@ -275,6 +275,7 @@ This stops compilation; remove the option after checking the output.
 - A `Handle` version wraps after 32768 reuses of the same entity ID.
 - Discard old handles after resetting the world, as version data is cleared.
 - Each event type holds up to 65535 events.
+- Component, event, and resource types must not be optional (`?T`).
 - `createEntity`, `add`, `addEvent`, and `addResource` panic on allocation failure.
 - Use `tryCreateEntity`, `tryAdd`, `tryAddEvent`, and `tryAddResource` when you
   need errors.

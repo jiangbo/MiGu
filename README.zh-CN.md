@@ -268,6 +268,7 @@ pub const migu_options: ecs.Options = .{ .debug_id = 7 };
 - `Handle` 的版本在同一实体编号复用 32768 次后回绕。
 - 重置世界后，弃用旧 Handle，版本数据被清空。
 - 每种事件最多保存 65535 条。
+- 组件、事件和资源的类型不能是可选类型（`?T`）。
 - `createEntity`、`add`、`addEvent`、`addResource` 遇到分配失败会 panic。
 - 需要处理错误时，使用 `tryCreateEntity`、`tryAdd`、
   `tryAddEvent`、`tryAddResource`。
