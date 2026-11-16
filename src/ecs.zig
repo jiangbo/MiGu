@@ -263,6 +263,8 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
     return world;
 }
 
+/// Like HashMap.getPtr, const World can return mutable pointers
+/// to components and resources, including through query rows.
 pub const World = struct {
     allocator: Allocator,
     entities: Entities = .{},
@@ -441,13 +443,8 @@ pub const World = struct {
         self.tryAddResource(value) catch @panic("oom");
     }
 
-    pub fn getResourcePtrConst(self: *const World, T: type) ?*const T {
+    pub fn getResourcePtr(self: *const World, T: type) ?*T {
         const map = self.storeConst(T, .resource) orelse return null;
-        return if (map.len == 0) null else &map.values[0];
-    }
-
-    pub fn getResourcePtr(self: *World, T: type) ?*T {
-        const map = self.store(T, .resource) orelse return null;
         return if (map.len == 0) null else &map.values[0];
     }
 
@@ -472,17 +469,11 @@ pub const World = struct {
     }
 
     pub fn get(self: *const World, entity: u16, T: type) ?T {
-        return if (self.getPtrConst(entity, T)) |ptr| ptr.* else null;
+        return if (self.getPtr(entity, T)) |ptr| ptr.* else null;
     }
 
-    pub fn getPtrConst(self: *const World, entity: u16, T: type) ?*const T {
+    pub fn getPtr(self: *const World, entity: u16, T: type) ?*T {
         const map = self.storeConst(T, .component) orelse return null;
-        if (!hasEntity(map.sparse, entity)) return null;
-        return &map.values[map.sparse[entity]];
-    }
-
-    pub fn getPtr(self: *World, entity: u16, T: type) ?*T {
-        const map = self.store(T, .component) orelse return null;
         if (!hasEntity(map.sparse, entity)) return null;
         return &map.values[map.sparse[entity]];
     }
@@ -634,8 +625,6 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
                 return self.getPtr(T).*;
             }
 
-            /// Like HashMap.getPtr, a const World allows mutable components.
-            /// Const applies to the World, not to its stored components.
             pub fn getPtr(self: @This(), T: type) *T {
                 const i = blk: inline for (All, 0..) |Comp, i| {
                     if (Comp == T) break :blk i;

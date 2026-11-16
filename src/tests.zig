@@ -504,20 +504,22 @@ test "const world reads components, resources, and events" {
     const world: *const ecs.World = &worldMut;
     try std.testing.expect(world.has(entity, Position));
     try std.testing.expectEqual(12, world.get(entity, Position).?.x);
-    try std.testing.expectEqual(12, world.getPtrConst(entity, Position).?.x);
+    try std.testing.expectEqual(12, world.getPtr(entity, Position).?.x);
+    world.getPtr(entity, Position).?.x = 18;
+    try std.testing.expectEqual(18, world.get(entity, Position).?.x);
     try std.testing.expectEqual(entity, world.getIdentity(Player).?);
-    try std.testing.expect(world.getPtrConst(entity, Velocity) == null);
+    try std.testing.expect(world.getPtr(entity, Velocity) == null);
     try std.testing.expectEqual(1, world.values(Position).len);
     worldMut.remove(entity, Position);
-    try std.testing.expectEqual(null, world.getPtrConst(entity, Position));
+    try std.testing.expectEqual(null, world.getPtr(entity, Position));
     try std.testing.expectEqual(null, world.get(entity, Position));
     try std.testing.expectEqual(0, world.values(Position).len);
-    try std.testing.expectEqual(24, world.getResourcePtrConst(Position).?.x);
+    try std.testing.expectEqual(24, world.getResourcePtr(Position).?.x);
     try std.testing.expectEqual(36, world.getEvent(Position)[0].x);
-    worldMut.getResourcePtr(Position).?.x = 48;
-    try std.testing.expectEqual(48, world.getResourcePtrConst(Position).?.x);
+    world.getResourcePtr(Position).?.x = 48;
+    try std.testing.expectEqual(48, world.getResourcePtr(Position).?.x);
     worldMut.removeResource(Position);
-    try std.testing.expectEqual(null, world.getResourcePtrConst(Position));
+    try std.testing.expectEqual(null, world.getResourcePtr(Position));
 }
 
 test "save and load versioned world" {
