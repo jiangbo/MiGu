@@ -65,6 +65,23 @@ const Entities = struct {
         const id = handle orelse return null;
         return if (self.isAlive(id)) id.entity else null;
     }
+
+    pub fn iterator(self: *const Entities) Iterator {
+        return .{ .versions = self.versions.items };
+    }
+
+    pub const Iterator = struct {
+        versions: []const Version,
+        index: usize = 0,
+        pub fn next(self: *Iterator) ?Entity {
+            while (self.index < self.versions.len) {
+                defer self.index += 1;
+                const alive = self.versions[self.index] % 2 == 0;
+                if (alive) return @intCast(self.index);
+            }
+            return null;
+        }
+    };
 };
 
 fn Store(V: type) type {
@@ -467,6 +484,14 @@ pub const World = struct {
 
     pub fn get(self: *const World, entity: u16, T: type) ?T {
         return if (self.getPtr(entity, T)) |ptr| ptr.* else null;
+    }
+
+    pub fn take(self: *World, entity: u16, T: type) ?T {
+        const map = self.store(T, .component) orelse return null;
+        if (!hasEntity(map.sparse, entity)) return null;
+        const value = map.values[map.sparse[entity]];
+        map.remove(entity);
+        return value;
     }
 
     pub fn getPtr(self: *const World, entity: u16, T: type) ?*T {
