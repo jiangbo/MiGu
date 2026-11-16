@@ -120,7 +120,7 @@ const Position = struct {
 
 ## 查询
 
-`query` 查询同时拥有所有指定组件的实体。
+`query` 查询同时拥有所有必需组件的实体。
 
 ```zig
 var query = world.query(.{ Position, Velocity });
@@ -128,6 +128,17 @@ while (query.next()) |row| {
     const position = row.getPtr(Position);
     const velocity = row.get(Velocity);
     _ = .{ position, velocity };
+}
+```
+
+使用 `?T` 读取可选组件，查询至少需要一个必需组件。
+
+```zig
+var query = world.query(.{ Position, ?Velocity });
+while (query.next()) |row| {
+    if (row.get(?Velocity)) |velocity| {
+        row.getPtr(Position).x += velocity.x;
+    }
 }
 ```
 

@@ -124,7 +124,7 @@ Use a unique `cid` for each type and keep it when renaming or moving the type.
 
 ## Query
 
-Use `query` for entities that have all requested components.
+Use `query` for entities that have all required components.
 
 ```zig
 var query = world.query(.{ Position, Velocity });
@@ -132,6 +132,17 @@ while (query.next()) |row| {
     const position = row.getPtr(Position);
     const velocity = row.get(Velocity);
     _ = .{ position, velocity };
+}
+```
+
+Use `?T` to read optional components. A query needs at least one required component.
+
+```zig
+var query = world.query(.{ Position, ?Velocity });
+while (query.next()) |row| {
+    if (row.get(?Velocity)) |velocity| {
+        row.getPtr(Position).x += velocity.x;
+    }
 }
 ```
 

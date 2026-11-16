@@ -572,3 +572,99 @@ test "load rejects unsupported and incomplete versions" {
         try std.testing.expectError(error.EndOfStream, result);
     }
 }
+
+test "optional query keeps rows when component store or value is missing" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createEntity();
+    const second = world.createEntity();
+    world.add(first, Position{ .x = 1 });
+    world.add(second, Position{ .x = 2 });
+
+    var query = world.query(.{ ?Velocity, Position });
+    const missing = query.next().?;
+    try std.testing.expect(@TypeOf(missing.getPtr(Position)) == *Position);
+    try std.testing.expect(@TypeOf(missing.getPtr(?Velocity)) == ?*Velocity);
+    try std.testing.expectEqual(null, missing.get(?Velocity));
+    try std.testing.expectEqual(null, query.next().?.getPtr(?Velocity));
+    try std.testing.expectEqual(null, query.next());
+
+    world.add(second, Velocity{ .x = 3 });
+    query = world.query(.{ ?Velocity, Position });
+    try std.testing.expectEqual(first, query.next().?.entity);
+    const present = query.next().?;
+    try std.testing.expectEqual(second, present.entity);
+    try std.testing.expectEqual(3, present.get(?Velocity).?.x);
+    present.getPtr(?Velocity).?.x = 4;
+    try std.testing.expectEqual(4, world.get(second, Velocity).?.x);
+    query.add(&world, second, Velocity{ .x = 5 });
+    try std.testing.expectEqual(5, world.get(second, Velocity).?.x);
+    try std.testing.expectEqual(null, query.next());
+
+    world.clear(Velocity);
+    query = world.query(.{ ?Velocity, Position });
+    try std.testing.expectEqual(null, query.next().?.get(?Velocity));
+    try std.testing.expectEqual(null, query.next().?.get(?Velocity));
+    try std.testing.expectEqual(null, query.next());
+}
+
+test "optional query still requires every required component" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createEntity();
+    const second = world.createEntity();
+    world.add(first, Position{});
+    world.add(second, Position{});
+    world.add(second, @as(Text, "ready"));
+
+    var query = world.query(.{ Position, ?Velocity, Text });
+    const row = query.next().?;
+    try std.testing.expectEqual(second, row.entity);
+    try std.testing.expectEqualStrings("ready", row.get(Text));
+    try std.testing.expectEqual(null, row.get(?Velocity));
+    try std.testing.expectEqual(null, query.next());
+
+    var missing = world.query(.{ Position, ?Velocity, Clock });
+    try std.testing.expectEqual(null, missing.next());
+    world.clear(Text);
+    query = world.query(.{ Position, ?Velocity, Text });
+    try std.testing.expectEqual(null, query.next());
+}
+
+test "optional query follows driver order and excludes hidden entities" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createEntity();
+    const second = world.createEntity();
+    const third = world.createEntity();
+    world.addMany(first, .{ Position{}, Render{ .layer = 0, .depth = 3 } });
+    world.addMany(second, .{ Position{}, Render{ .layer = 0, .depth = 1 } });
+    world.addMany(third, .{ Position{}, Render{ .layer = 0, .depth = 2 }, Hidden{} });
+    world.add(first, @as(Text, "first"));
+    world.add(first, Idle{});
+    world.sort(Render, {}, lessThanRender);
+
+    var query = world.queryBy(Render, .{ Position, ?Text, ?Idle }, .{Hidden});
+    const missing = query.next().?;
+    try std.testing.expectEqual(second, missing.entity);
+    try std.testing.expectEqual(null, missing.get(?Text));
+    try std.testing.expectEqual(null, missing.getPtr(?Idle));
+    const present = query.next().?;
+    try std.testing.expectEqual(first, present.entity);
+    try std.testing.expectEqualStrings("first", present.get(?Text).?);
+    try std.testing.expect(present.getPtr(?Idle) != null);
+    try std.testing.expectEqual(null, query.next());
+
+    query = world.queryBy(Render, .{ Position, ?Text, ?Idle }, .{Hidden}).reverse();
+    try std.testing.expectEqual(first, query.next().?.entity);
+    try std.testing.expectEqual(second, query.next().?.entity);
+    try std.testing.expectEqual(null, query.next());
+
+    var filtered = world.queryNot(.{ Position, ?Text }, .{Hidden});
+    try std.testing.expectEqual(first, filtered.next().?.entity);
+    try std.testing.expectEqual(second, filtered.next().?.entity);
+    try std.testing.expectEqual(null, filtered.next());
+}

@@ -527,6 +527,8 @@ pub const World = struct {
     pub fn queryBy(self: *const World, By: type, All: anytype, None: anytype)
         Query(.{By} ++ All, None) {
     // zig fmt: on
+        if (@typeInfo(By) == .optional)
+            @compileError(@typeName(By) ++ " must not be optional");
         return self.buildQuery(.{By} ++ All, None, true);
     }
 
@@ -534,17 +536,18 @@ pub const World = struct {
     fn buildQuery(self: *const World, All: anytype, None: anytype,
         comptime byFirst: bool) Query(All, None) {
     // zig fmt: on
-        comptime std.debug.assert(All.len > 0);
-
         var rs: Query(All, None) = .{};
         var minCount: usize = std.math.maxInt(usize);
         inline for (All, 0.., &rs.sparse, &rs.values) |T, i, *s, *v| {
-            const map = self.storeConst(T, .component) orelse return .{};
-            s.*, v.* = .{ map.sparse, @ptrCast(map.values) };
-            if (if (byFirst) i == 0 else map.len < minCount) {
-                minCount = map.len;
-                rs.dense = map.dense[0..map.len];
-            }
+            if (self.storeConst(queryType(T, false), .component)) |map| {
+                s.*, v.* = .{ map.sparse, @ptrCast(map.values) };
+                if (@typeInfo(T) != .optional) {
+                    if (if (byFirst) i == 0 else map.len < minCount) {
+                        minCount = map.len;
+                        rs.dense = map.dense[0..map.len];
+                    }
+                }
+            } else if (@typeInfo(T) != .optional) return .{};
         }
         inline for (None, &rs.none) |T, *none| {
             if (self.storeConst(T, .component)) |s| none.* = s.sparse;
@@ -553,10 +556,24 @@ pub const World = struct {
     }
 };
 
+fn queryType(T: type, comptime pointer: bool) type {
+    const C = if (@typeInfo(T) == .optional) @typeInfo(T).optional.child else T;
+    return if (!pointer) C else if (@typeInfo(T) == .optional) ?*C else *C;
+}
+
 pub fn Query(comptime All: anytype, comptime None: anytype) type {
+    const Pointers = blk: {
+        var types: [All.len]type, var required = .{ undefined, false };
+        for (All, 0..) |T, i| types[i] = queryType(T, true);
+        for (&types) |T| required = required or @typeInfo(T) != .optional;
+        if (!required) @compileError("query needs one required component");
+        break :blk @Tuple(&types);
+    };
+    for (None) |T| if (@typeInfo(T) == .optional)
+        @compileError(@typeName(T) ++ " must not be optional");
     return struct {
         dense: []u16 = &.{},
-        sparse: [All.len][]u16 = undefined,
+        sparse: [All.len][]u16 = @splat(&.{}),
         values: [All.len]*anyopaque = undefined,
         none: [None.len][]u16 = @splat(&.{}),
         index: u16 = 0,
@@ -581,14 +598,18 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
                 if (comptime All.len == 1 and None.len == 0) {
                     const value = self.values[0];
                     const items: [*]All[0] = @ptrCast(@alignCast(value));
-                    row.values[0] = @ptrCast(&items[index]);
+                    row.values[0] = &items[index];
                     return row;
                 }
                 inline for (All, 0..) |T, i| {
                     const sparse = self.sparse[i];
-                    if (!hasEntity(sparse, entity)) continue :blk;
-                    const items: [*]T = @ptrCast(@alignCast(self.values[i]));
-                    row.values[i] = @ptrCast(&items[sparse[entity]]);
+                    if (hasEntity(sparse, entity)) {
+                        const items: [*]queryType(T, false) =
+                            @ptrCast(@alignCast(self.values[i]));
+                        row.values[i] = &items[sparse[entity]];
+                    } else if (@typeInfo(T) == .optional) {
+                        row.values[i] = null;
+                    } else continue :blk;
                 }
                 return row;
             } else return null;
@@ -596,7 +617,7 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
 
         pub fn add(_: *@This(), world: *World, e: u16, v: anytype) void {
             const inQuery = inline for (All ++ None) |C| {
-                if (C == @TypeOf(v)) break true;
+                if (queryType(C, false) == @TypeOf(v)) break true;
             } else false;
             if (inQuery) std.debug.assert(world.has(e, @TypeOf(v)));
             world.add(e, v);
@@ -604,17 +625,18 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
 
         pub const Row = struct {
             entity: Entity,
-            values: [All.len]*anyopaque = undefined,
+            values: Pointers = undefined,
 
             pub fn get(self: @This(), T: type) T {
-                return self.getPtr(T).*;
+                if (@typeInfo(T) != .optional) return self.getPtr(T).*;
+                return if (self.getPtr(T)) |value| value.* else null;
             }
 
-            pub fn getPtr(self: @This(), T: type) *T {
+            pub fn getPtr(self: @This(), T: type) queryType(T, true) {
                 const i = blk: inline for (All, 0..) |Comp, i| {
                     if (Comp == T) break :blk i;
                 } else @compileError(@typeName(T) ++ " is not in query type");
-                return @ptrCast(@alignCast(self.values[i]));
+                return self.values[i];
             }
         };
     };
