@@ -14,7 +14,7 @@ fn hasEntity(slice: []const u16, entity: u16) bool {
 pub const Version = u16;
 pub const Handle = struct { entity: u16, version: Version };
 
-const Kind = enum(u8) { component, event, resource };
+pub const Kind = enum(u8) { component, event, resource };
 
 const Entities = struct {
     versions: std.ArrayList(Version) = .empty,
@@ -284,33 +284,6 @@ pub const World = struct {
     entities: Entities = .{},
     map: std.AutoHashMapUnmanaged(TypeId, Store(u8)) = .empty,
 
-    fn id(T: type, comptime kind: Kind) TypeId {
-        const hash = std.hash.Fnv1a_64.hash;
-        const value = comptime switch (kind) {
-            .component => typeId(T),
-            .event => hash(std.fmt.comptimePrint("e{d}", .{typeId(T)})),
-            .resource => hash(std.fmt.comptimePrint("r{d}", .{typeId(T)})),
-        };
-        const builtin = @import("builtin");
-        if (builtin.mode != .debug) return value;
-        _ = struct {
-            const marker: u8 = 0;
-            comptime {
-                const print = std.fmt.comptimePrint;
-                if (options.debug_id == value) {
-                    @compileLog(print("MiGu {s} ID {d}: {s}", .{
-                        @tagName(kind), value, @typeName(T),
-                    }));
-                }
-                @export(&marker, .{
-                    .name = print("migu_id_{d}", .{value}),
-                    .visibility = .hidden,
-                });
-            }
-        };
-        return value;
-    }
-
     pub fn init(allocator: std.mem.Allocator) World {
         comptime std.debug.assert(@sizeOf(Store(u8)) <= 64);
         return .{ .allocator = allocator };
@@ -372,7 +345,7 @@ pub const World = struct {
     }
 
     fn tryAssure(self: *World, T: type, comptime k: Kind) Oom!*Store(T) {
-        const result = try self.map.getOrPut(self.allocator, id(T, k));
+        const result = try self.map.getOrPut(self.allocator, typeId(T, k));
         const map: *Store(T) = @ptrCast(@alignCast(result.value_ptr));
         if (!result.found_existing) map.* = .{ .kind = k };
         return map;
@@ -449,7 +422,7 @@ pub const World = struct {
     }
 
     pub fn removeEvent(self: *World, T: type) void {
-        var removed = self.map.fetchRemove(id(T, .event));
+        var removed = self.map.fetchRemove(typeId(T, .event));
         if (removed) |*r| r.value.deinit(self.allocator);
     }
 
@@ -463,17 +436,17 @@ pub const World = struct {
     }
 
     pub fn removeResource(self: *World, T: type) void {
-        var removed = self.map.fetchRemove(id(T, .resource));
+        var removed = self.map.fetchRemove(typeId(T, .resource));
         if (removed) |*r| r.value.deinit(self.allocator);
     }
 
     fn storeConst(self: *const World, T: type, comptime k: Kind) ?*const Store(T) {
-        const map = self.map.getPtr(id(T, k)) orelse return null;
+        const map = self.map.getPtr(typeId(T, k)) orelse return null;
         return @ptrCast(@alignCast(map));
     }
 
     fn store(self: *World, T: type, comptime kind: Kind) ?*Store(T) {
-        const map = self.map.getPtr(id(T, kind)) orelse return null;
+        const map = self.map.getPtr(typeId(T, kind)) orelse return null;
         return @ptrCast(@alignCast(map));
     }
 
@@ -534,7 +507,7 @@ pub const World = struct {
         var iterator = self.map.iterator();
         blk: while (iterator.next()) |entry| {
             inline for (Types) |T| {
-                if (entry.key_ptr.* == id(T, .component)) continue :blk;
+                if (entry.key_ptr.* == typeId(T, .component)) continue :blk;
             }
             entry.value_ptr.remove(entity);
         }
@@ -653,12 +626,38 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
     };
 }
 
-pub fn typeId(T: type) TypeId {
-    switch (@typeInfo(T)) {
-        .@"struct", .@"union", .@"enum", .@"opaque" => {
-            if (@hasDecl(T, "cid")) return T.cid;
-        },
-        else => {},
-    }
-    return comptime std.hash.Fnv1a_64.hash(@typeName(T));
+pub fn typeId(T: type, comptime kind: Kind) TypeId {
+    const hash = std.hash.Fnv1a_64.hash;
+    const base: TypeId = comptime blk: {
+        switch (@typeInfo(T)) {
+            .@"struct", .@"union", .@"enum", .@"opaque" => {
+                if (@hasDecl(T, "cid")) break :blk T.cid;
+            },
+            else => {},
+        }
+        break :blk hash(@typeName(T));
+    };
+    const value = comptime switch (kind) {
+        .component => base,
+        .event => hash(std.fmt.comptimePrint("e{d}", .{base})),
+        .resource => hash(std.fmt.comptimePrint("r{d}", .{base})),
+    };
+    const builtin = @import("builtin");
+    if (builtin.mode != .debug) return value;
+    _ = struct {
+        const marker: u8 = 0;
+        comptime {
+            const print = std.fmt.comptimePrint;
+            if (options.debug_id == value) {
+                @compileLog(print("MiGu {s} ID {d}: {s}", .{
+                    @tagName(kind), value, @typeName(T),
+                }));
+            }
+            @export(&marker, .{
+                .name = print("migu_id_{d}", .{value}),
+                .visibility = .hidden,
+            });
+        }
+    };
+    return value;
 }

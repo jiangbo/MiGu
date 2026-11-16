@@ -21,7 +21,7 @@ test "explicit component id and separate resource and event stores" {
         value: u32,
     };
 
-    try std.testing.expectEqual(@as(ecs.TypeId, 1001), ecs.typeId(Value));
+    try std.testing.expectEqual(1001, ecs.typeId(Value, .component));
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
 
@@ -84,7 +84,7 @@ test "storage keeps values after growth" {
     const events = world.getEvent(SoundPlay);
     try std.testing.expectEqual(128, events.len);
     for (events, 0..) |event, i| {
-        try std.testing.expectEqual(@as(u8, @intCast(i)), event.id);
+        try std.testing.expectEqual(i, event.id);
     }
 }
 
