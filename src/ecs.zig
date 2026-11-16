@@ -277,8 +277,6 @@ pub const World = struct {
         const builtin = @import("builtin");
         if (builtin.mode != .debug) return value;
         _ = struct {
-            const Type = T;
-            const category = kind;
             const marker: u8 = 0;
             comptime {
                 const print = std.fmt.comptimePrint;
@@ -371,9 +369,7 @@ pub const World = struct {
     }
 
     pub fn destroyEntity(self: *World, entity: u16) void {
-        const versions = self.entities.versions.items;
-        std.debug.assert(entity < versions.len);
-        std.debug.assert(versions[entity] % 2 == 0);
+        _ = self.entities.to(entity);
 
         var iterator = self.map.valueIterator();
         while (iterator.next()) |map| {
@@ -601,8 +597,7 @@ pub fn Query(comptime All: anytype, comptime None: anytype) type {
                 }
                 inline for (All, 0..) |T, i| {
                     const sparse = self.sparse[i];
-                    if (entity >= sparse.len) continue :blk;
-                    if (sparse[entity] == invalid) continue :blk;
+                    if (!hasEntity(sparse, entity)) continue :blk;
                     const items: [*]T = @ptrCast(@alignCast(self.values[i]));
                     row.values[i] = @ptrCast(&items[sparse[entity]]);
                 }
