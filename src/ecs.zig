@@ -85,6 +85,7 @@ const Entities = struct {
 };
 
 fn Store(V: type) type {
+    if (V == type) @compileError("use T{} instead of T");
     return struct {
         kind: Kind,
         sparse: []u16 = &.{},
@@ -321,14 +322,12 @@ pub const World = struct {
     }
 
     pub fn tryAddEvent(self: *World, value: anytype) EventError!void {
-        if (@TypeOf(value) == type) @compileError("use T{} instead of T");
         var map = try self.tryAssure(@TypeOf(value), .event);
         if (map.len == invalid) return error.MaxEvent;
         try map.appendValue(self.allocator, value);
     }
 
     pub fn tryAddResource(self: *World, value: anytype) Oom!void {
-        if (@TypeOf(value) == type) @compileError("use T{} instead of T");
         const T = @TypeOf(value);
         var map = try self.tryAssure(T, .resource);
         if (map.len == 0) {
@@ -339,7 +338,6 @@ pub const World = struct {
     }
 
     pub fn tryAdd(self: *World, entity: u16, value: anytype) Oom!void {
-        if (@TypeOf(value) == type) @compileError("use T{} instead of T");
         var map = try self.tryAssure(@TypeOf(value), .component);
         try map.add(self.allocator, entity, value);
     }
