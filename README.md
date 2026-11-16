@@ -13,9 +13,6 @@ Requires Zig 0.17.1 or newer. Run tests with `zig build test` or
 It is designed for small single-threaded games and tools. Entity ids are
 `u16`, so the maximum entity count is limited.
 
-The name comes from MiGu (迷毂), a plant from ShanHaiJing, also known as
-Classic of Mountains and Rivers.
-
 ## Install
 
 Fetch MiGu in your project:
@@ -291,6 +288,13 @@ const PlayerName = Name;
 
 // Name and PlayerName are the same component type.
 ```
+
+## Name
+
+The name comes from MiGu (迷榖) in the
+[Classic of Mountains and Seas · Southern Mountains](https://zh.wikisource.org/zh-hans/山海經/南山經):
+
+> 有木焉，其状如榖而黑理，其华四照，其名曰迷榖，佩之不迷。
 
 ## Acknowledgements
 
