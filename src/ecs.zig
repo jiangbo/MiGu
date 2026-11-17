@@ -7,7 +7,7 @@ pub const Oom = Allocator.Error;
 pub const EntityError = Oom || error{MaxEntity};
 pub const EventError = Oom || error{MaxEvent};
 pub const Entity = u16;
-const invalid = std.math.maxInt(u16);
+pub const invalid = std.math.maxInt(u16);
 fn hasEntity(slice: []const u16, entity: u16) bool {
     return entity < slice.len and slice[entity] != invalid;
 }
