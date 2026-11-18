@@ -168,7 +168,7 @@ while (query.next()) |row| {
 }
 ```
 
-Use `query.add` to safely add components while iterating.
+During iteration, use `query.add` only for components outside the query.
 
 ```zig
 fn markIdle(world: *ecs.World) void {
@@ -178,6 +178,22 @@ fn markIdle(world: *ecs.World) void {
             query.add(world, row.entity, Idle{});
         }
     }
+}
+```
+
+To add a component used by the query, queue an event and apply it after the loop.
+
+```zig
+fn markIdleAfterQuery(world: *ecs.World) void {
+    const AddIdle = struct { entity: ecs.Entity };
+
+    var query = world.queryNot(.{ Position, Velocity }, .{Idle});
+    while (query.next()) |row| {
+        if (row.get(Velocity).x != 0) continue;
+        world.addEvent(AddIdle{ .entity = row.entity });
+    }
+    for (world.getEvent(AddIdle)) |event| world.add(event.entity, Idle{});
+    world.clearEvent(AddIdle);
 }
 ```
 
@@ -264,6 +280,24 @@ for (world.getEvent(SoundPlay)) |event| {
 
 world.clearEvent(SoundPlay);
 ```
+
+## World Snapshot
+
+`ecs.save` writes a world snapshot, including queued events.
+`ecs.load` restores it into a new `World`.
+
+```zig
+var output: std.Io.Writer.Allocating = .init(allocator);
+defer output.deinit();
+try ecs.save(&world, &output.writer);
+
+var reader = std.Io.Reader.fixed(output.writer.buffered());
+var restored = try ecs.load(allocator, &reader);
+defer restored.deinit();
+```
+
+Snapshots are for use on the same machine and platform. Pointers and slices
+store only reference information and must be restored separately.
 
 ## ID Conflict
 

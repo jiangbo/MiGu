@@ -163,7 +163,7 @@ while (query.next()) |row| {
 }
 ```
 
-遍历过程中使用 `query.add` 安全添加组件。
+遍历时，只用 `query.add` 添加查询条件之外的组件。
 
 ```zig
 fn markIdle(world: *ecs.World) void {
@@ -173,6 +173,22 @@ fn markIdle(world: *ecs.World) void {
             query.add(world, row.entity, Idle{});
         }
     }
+}
+```
+
+要新增查询涉及的组件，可先记录事件，遍历结束后再添加。
+
+```zig
+fn markIdleAfterQuery(world: *ecs.World) void {
+    const AddIdle = struct { entity: ecs.Entity };
+
+    var query = world.queryNot(.{ Position, Velocity }, .{Idle});
+    while (query.next()) |row| {
+        if (row.get(Velocity).x != 0) continue;
+        world.addEvent(AddIdle{ .entity = row.entity });
+    }
+    for (world.getEvent(AddIdle)) |event| world.add(event.entity, Idle{});
+    world.clearEvent(AddIdle);
 }
 ```
 
@@ -256,6 +272,22 @@ for (world.getEvent(SoundPlay)) |event| {
 
 world.clearEvent(SoundPlay);
 ```
+
+## 世界快照
+
+`ecs.save` 保存世界快照，包含待处理事件。`ecs.load` 将快照恢复到新的 `World`。
+
+```zig
+var output: std.Io.Writer.Allocating = .init(allocator);
+defer output.deinit();
+try ecs.save(&world, &output.writer);
+
+var reader = std.Io.Reader.fixed(output.writer.buffered());
+var restored = try ecs.load(allocator, &reader);
+defer restored.deinit();
+```
+
+快照仅供本机使用，不跨平台。指针和切片只保存引用信息，需要单独恢复。
 
 ## ID 冲突
 
