@@ -274,6 +274,7 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
         }
 
         const size = try reader.takeInt(u32, .little);
+        std.debug.assert(size == @as(u32, store.len) * store.valueSize);
         if (store.valueSize == 0) store.valueCap = invalid;
         if (size == 0) continue;
         store.values = gpa.rawAlloc(size, store.alignment, //
@@ -322,6 +323,7 @@ pub const World = struct {
     }
 
     pub fn trySetIdentity(self: *World, entity: u16, T: type) Oom!void {
+        _ = self.entities.to(entity);
         (try self.tryAssure(T, .component)).identity = entity;
     }
 
@@ -342,11 +344,13 @@ pub const World = struct {
     }
 
     pub fn tryAdd(self: *World, entity: u16, value: anytype) Oom!void {
+        _ = self.entities.to(entity);
         var map = try self.tryAssure(@TypeOf(value), .component);
         try map.add(self.allocator, entity, value);
     }
 
     pub fn tryGetOrAdd(self: *World, entity: u16, v: anytype) Oom!*@TypeOf(v) {
+        _ = self.entities.to(entity);
         const map = try self.tryAssure(@TypeOf(v), .component);
         if (!hasEntity(map.sparse, entity)) {
             try map.add(self.allocator, entity, v);
