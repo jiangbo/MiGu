@@ -285,10 +285,19 @@ pub fn load(gpa: Allocator, reader: *std.Io.Reader) !World {
     return world;
 }
 
+pub const Stats = struct { alive: usize, total: usize, stores: usize };
 pub const World = struct {
     allocator: Allocator,
     entities: Entities = .{},
     map: std.AutoHashMapUnmanaged(TypeId, Store(u8)) = .empty,
+
+    pub fn stats(self: *const World) Stats {
+        return .{
+            .alive = self.entities.count(),
+            .total = self.entities.versions.items.len,
+            .stores = self.map.count(),
+        };
+    }
 
     pub fn init(allocator: std.mem.Allocator) World {
         comptime std.debug.assert(@sizeOf(Store(u8)) <= 64);
