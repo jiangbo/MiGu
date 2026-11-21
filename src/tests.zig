@@ -88,6 +88,60 @@ test "storage keeps values after growth" {
     }
 }
 
+test "locking a missing component store leaves the query empty" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    world.lockPointers(Velocity, .component);
+    defer world.unlockPointers(Velocity, .component);
+    var query = world.query(.{Velocity});
+    try std.testing.expect(query.next() == null);
+    try std.testing.expectEqual(0, world.stats().stores);
+}
+
+test "locked component pointers survive overwrites and map growth" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createEntity();
+    world.add(first, Position{ .x = 1 });
+
+    world.lockPointers(Position, .component);
+    defer world.unlockPointers(Position, .component);
+    const position = world.getPtr(first, Position).?;
+
+    {
+        world.lockPointers(Position, .component);
+        defer world.unlockPointers(Position, .component);
+        world.add(first, Position{ .x = 3 });
+        world.add(first, Velocity{});
+    }
+    world.addEvent(Position{});
+    world.removeEvent(Position);
+    const oldCapacity = world.map.capacity();
+    inline for (1..33) |size| world.addResource(@as([size]u8, @splat(0)));
+    try std.testing.expect(world.map.capacity() > oldCapacity);
+    try std.testing.expectEqual(position, world.getPtr(first, Position).?);
+    try std.testing.expectEqual(3, position.x);
+}
+
+test "clear resets sparse indices before reuse" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const first = world.createEntity();
+    const gap = world.createEntity();
+    const last = world.createEntity();
+    world.add(first, Velocity{ .x = 1 });
+
+    world.add(last, Velocity{ .x = 2 });
+    world.clear(Velocity);
+    world.add(last, Velocity{ .x = 3 });
+    try std.testing.expect(!world.has(first, Velocity));
+    try std.testing.expect(!world.has(gap, Velocity));
+    try std.testing.expectEqual(3, world.get(last, Velocity).?.x);
+}
+
 test "query entry points accept const world" {
     var worldMut = ecs.World.init(std.testing.allocator);
     defer worldMut.deinit();
@@ -407,8 +461,14 @@ test "resource is separate from component and holds one value" {
 
     try std.testing.expect(world.getResourcePtr(Clock) == null);
     world.addResource(Clock{ .hour = 9 });
-    world.addResource(Clock{ .hour = 10 });
-    try std.testing.expectEqual(10, world.getResourcePtr(Clock).?.hour);
+    {
+        world.lockPointers(Clock, .resource);
+        defer world.unlockPointers(Clock, .resource);
+        const clock = world.getResourcePtr(Clock).?;
+        world.addResource(Clock{ .hour = 10 });
+        try std.testing.expectEqual(clock, world.getResourcePtr(Clock).?);
+        try std.testing.expectEqual(10, clock.hour);
+    }
     try std.testing.expectEqual(7, world.get(entity, Clock).?.hour);
 
     world.removeResource(Clock);

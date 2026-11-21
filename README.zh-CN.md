@@ -101,6 +101,20 @@ world.remove(entity, Player);
 world.removeMany(entity, .{ Position, Player });
 ```
 
+## 指针稳定性
+
+使用组件、事件或资源的指针或切片时，可锁住对应存储。
+
+```zig
+{
+    world.lockPointers(Position, .component);
+    defer world.unlockPointers(Position, .component);
+
+    const position = world.getPtr(entity, Position).?;
+    position.x += 1;
+}
+```
+
 ## 组件 ID
 
 默认自动生成 ID，如果想固定 ID，可以在类型内声明 `cid`：
