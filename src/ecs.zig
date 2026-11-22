@@ -7,14 +7,14 @@ pub const Oom = Allocator.Error;
 pub const EntityError = Oom || error{MaxEntity};
 pub const EventError = Oom || error{MaxEvent};
 pub const Entity = u16;
+pub const Version = u16;
+pub const TypeId = u64;
+pub const Handle = struct { entity: u16, version: Version };
+pub const Kind = enum(u8) { component, event, resource };
 pub const invalid = std.math.maxInt(u16);
 fn hasEntity(slice: []const u16, entity: u16) bool {
     return entity < slice.len and slice[entity] != invalid;
 }
-pub const Version = u16;
-pub const Handle = struct { entity: u16, version: Version };
-
-pub const Kind = enum(u8) { component, event, resource };
 
 const Entities = struct {
     versions: std.ArrayList(Version) = .empty,
@@ -220,8 +220,6 @@ const Store = struct {
         self.len = 0;
     }
 };
-
-pub const TypeId = u64;
 
 pub const Options = struct { debug_id: ?TypeId = null };
 const hasDecl = @hasDecl(root, "migu_options");
@@ -531,7 +529,12 @@ pub const World = struct {
         inline for (bundle) |value| self.add(entity, value);
     }
 
-    pub fn values(self: *const World, T: type) []T {
+    pub fn getEntities(self: *const World, T: type) []const Entity {
+        const map = self.storeConst(T, .component) orelse return &.{};
+        return map.dense[0..map.len];
+    }
+
+    pub fn getComponents(self: *const World, T: type) []T {
         const map = self.storeConst(T, .component) orelse return &.{};
         return map.items(T)[0..map.len];
     }

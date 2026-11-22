@@ -374,15 +374,21 @@ test "values clear and remove all components" {
     const second = world.createEntity();
     world.add(second, Position{ .x = 3 });
 
-    try std.testing.expectEqual(2, world.values(Position).len);
+    const expectSlices = std.testing.expectEqualSlices;
+    try expectSlices(ecs.Entity, &.{}, world.getEntities(Enemy));
+    try expectSlices(ecs.Entity, &.{ first, second }, world.getEntities(Position));
+    try std.testing.expectEqual(2, world.getComponents(Position).len);
 
     world.removeAll(first);
     try std.testing.expect(!world.has(first, Position));
     try std.testing.expect(!world.has(first, Velocity));
-    try std.testing.expectEqual(1, world.values(Position).len);
+    try expectSlices(ecs.Entity, &.{second}, world.getEntities(Position));
+    try std.testing.expectEqual(1, world.getComponents(Position).len);
+    try std.testing.expectEqual(3, world.getComponents(Position)[0].x);
 
     world.clear(Position);
-    try std.testing.expectEqual(0, world.values(Position).len);
+    try std.testing.expectEqual(0, world.getEntities(Position).len);
+    try std.testing.expectEqual(0, world.getComponents(Position).len);
 }
 
 test "remove except keeps listed components and other world data" {
@@ -447,7 +453,7 @@ test "reset clears world" {
 
     world.reset();
 
-    try std.testing.expectEqual(0, world.values(Position).len);
+    try std.testing.expectEqual(0, world.getComponents(Position).len);
     try std.testing.expectEqual(0, world.getEvent(SoundPlay).len);
     try std.testing.expect(world.getResourcePtr(Clock) == null);
 }
@@ -502,8 +508,8 @@ test "reset keeps all resources and drops others" {
     world.resetKeepResources();
     try std.testing.expectEqual(9, world.getResourcePtr(Clock).?.hour);
     try std.testing.expectEqual(12, world.getResourcePtr(Inventory).?.gold);
-    try std.testing.expectEqual(0, world.values(Clock).len);
-    try std.testing.expectEqual(0, world.values(Enemy).len);
+    try std.testing.expectEqual(0, world.getComponents(Clock).len);
+    try std.testing.expectEqual(0, world.getComponents(Enemy).len);
 }
 
 test "sort and query by component order" {
@@ -569,13 +575,16 @@ test "const world can modify stored values" {
     try std.testing.expectEqual(18, world.get(entity, Position).?.x);
     try std.testing.expectEqual(entity, world.getIdentity(Player).?);
     try std.testing.expect(world.getPtr(entity, Velocity) == null);
-    try std.testing.expectEqual(1, world.values(Position).len);
-    world.values(Position)[0].x = 20;
+    try std.testing.expectEqual(1, world.getEntities(Position).len);
+    try std.testing.expectEqual(entity, world.getEntities(Position)[0]);
+    try std.testing.expectEqual(1, world.getComponents(Position).len);
+    world.getComponents(Position)[0].x = 20;
     try std.testing.expectEqual(20, world.get(entity, Position).?.x);
     worldMut.remove(entity, Position);
     try std.testing.expectEqual(null, world.getPtr(entity, Position));
     try std.testing.expectEqual(null, world.get(entity, Position));
-    try std.testing.expectEqual(0, world.values(Position).len);
+    try std.testing.expectEqual(0, world.getEntities(Position).len);
+    try std.testing.expectEqual(0, world.getComponents(Position).len);
     try std.testing.expectEqual(24, world.getResourcePtr(Position).?.x);
     try std.testing.expectEqual(36, world.getEvent(Position)[0].x);
     world.getEvent(Position)[0].x = 40;
@@ -615,7 +624,7 @@ test "save and load versioned world" {
 
     loaded.resetKeepResources();
     try std.testing.expectEqual(9, loaded.getResourcePtr(Clock).?.hour);
-    try std.testing.expectEqual(0, loaded.values(Position).len);
+    try std.testing.expectEqual(0, loaded.getComponents(Position).len);
     try std.testing.expectEqual(0, loaded.getEvent(SoundPlay).len);
 }
 
