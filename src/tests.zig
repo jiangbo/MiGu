@@ -728,3 +728,59 @@ test "optional query follows driver order and excludes hidden entities" {
     try std.testing.expectEqual(second, filtered.next().?.entity);
     try std.testing.expectEqual(null, filtered.next());
 }
+
+fn exerciseWorldOom(gpa: std.mem.Allocator) !void {
+    var world = ecs.World.init(gpa);
+    defer world.deinit();
+
+    const first = try world.tryCreateEntity();
+    const second = try world.tryCreateEntity();
+    try world.tryAdd(first, Position{ .x = 1 });
+    try world.tryAdd(second, Position{ .x = 2 });
+    try world.tryAdd(second, Player{});
+    _ = try world.tryGetOrAdd(first, Velocity{ .x = 3 });
+    try world.trySetIdentity(first, Player);
+    try world.tryAddResource(Clock{ .hour = 9 });
+    try world.tryAddEvent(SoundPlay{ .id = 7 });
+
+    try std.testing.expectEqual(2, world.stats().alive);
+    try std.testing.expectEqual(3, world.get(first, Velocity).?.x);
+}
+
+test "world fallible operations handle allocation failure without leaking" {
+    const check = std.testing.checkAllAllocationFailures;
+    try check(std.testing.allocator, exerciseWorldOom, .{});
+}
+
+fn loadSnapshotOom(gpa: std.mem.Allocator, data: []const u8) !void {
+    var reader = std.Io.Reader.fixed(data);
+    var loaded = try ecs.load(gpa, &reader);
+    defer loaded.deinit();
+
+    try std.testing.expectEqual(1, loaded.stats().alive);
+    try std.testing.expectEqual(12, loaded.get(1, Position).?.x);
+    try std.testing.expect(loaded.has(1, Player));
+    try std.testing.expectEqual(9, loaded.getResourcePtr(Clock).?.hour);
+    try std.testing.expectEqual(7, loaded.getEvent(SoundPlay)[0].id);
+}
+
+test "load cleans up partial world on allocation failure" {
+    var world = ecs.World.init(std.testing.allocator);
+    defer world.deinit();
+
+    const removed = world.createEntity();
+    const entity = world.createEntity();
+    world.add(entity, Position{ .x = 12, .y = 34 });
+    world.add(entity, Player{});
+    world.setIdentity(entity, Player);
+    world.addResource(Clock{ .hour = 9 });
+    world.addEvent(SoundPlay{ .id = 7 });
+    world.destroyEntity(removed);
+
+    var output: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer output.deinit();
+    try ecs.save(&world, &output.writer);
+
+    const check = std.testing.checkAllAllocationFailures;
+    try check(std.testing.allocator, loadSnapshotOom, .{output.writer.buffered()});
+}
