@@ -529,6 +529,12 @@ pub const World = struct {
         inline for (bundle) |value| self.add(entity, value);
     }
 
+    pub fn spawn(self: *World, bundle: anytype) u16 {
+        const entity = self.createEntity();
+        self.addMany(entity, bundle);
+        return entity;
+    }
+
     pub fn getEntities(self: *const World, T: type) []const Entity {
         const map = self.storeConst(T, .component) orelse return &.{};
         return map.dense[0..map.len];

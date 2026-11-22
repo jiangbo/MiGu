@@ -177,6 +177,10 @@ test "add many and query components" {
     try std.testing.expectEqual(1, found.get(Position).x);
     try std.testing.expectEqual(3, found.get(Velocity).x);
     try std.testing.expectEqual(null, query.next());
+
+    const spawned = world.spawn(.{ Position{ .x = 5 }, Player{} });
+    try std.testing.expectEqual(5, world.get(spawned, Position).?.x);
+    try std.testing.expect(world.has(spawned, Player));
 }
 
 test "remove many keeps other components and entities" {
