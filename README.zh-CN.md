@@ -101,20 +101,6 @@ world.remove(entity, Player);
 world.removeMany(entity, .{ Position, Player });
 ```
 
-## 指针稳定性
-
-使用组件、事件或资源的指针或切片时，可锁住对应存储。
-
-```zig
-{
-    world.lockPointers(Position, .component);
-    defer world.unlockPointers(Position, .component);
-
-    const position = world.getPtr(entity, Position).?;
-    position.x += 1;
-}
-```
-
 ## 组件 ID
 
 默认自动生成 ID，如果想固定 ID，可以在类型内声明 `cid`：
@@ -316,6 +302,20 @@ pub const migu_options: ecs.Options = .{ .debug_id = 7 };
 
 匹配的 ID 会通过 `@compileLog` 输出类型名和存储类别。
 这会中止编译，查看输出后移除配置。
+
+## 指针稳定性
+
+使用组件、事件或资源的指针或切片时，可锁住对应存储。
+
+```zig
+{
+    world.lockPointers(Position, .component);
+    defer world.unlockPointers(Position, .component);
+
+    const position = world.getPtr(entity, Position).?;
+    position.x += 1;
+}
+```
 
 ## 注意事项
 

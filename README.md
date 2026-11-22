@@ -106,20 +106,6 @@ world.remove(entity, Player);
 world.removeMany(entity, .{ Position, Player });
 ```
 
-## Pointer stability
-
-Lock the component, event, or resource store while using its pointers or slices.
-
-```zig
-{
-    world.lockPointers(Position, .component);
-    defer world.unlockPointers(Position, .component);
-
-    const position = world.getPtr(entity, Position).?;
-    position.x += 1;
-}
-```
-
 ## Component ID
 
 IDs are assigned automatically. To use a fixed ID, declare `cid` in the type:
@@ -326,6 +312,20 @@ pub const migu_options: ecs.Options = .{ .debug_id = 7 };
 
 Matching IDs print their type names and store kinds through `@compileLog`.
 This stops compilation; remove the option after checking the output.
+
+## Pointer stability
+
+Lock the component, event, or resource store while using its pointers or slices.
+
+```zig
+{
+    world.lockPointers(Position, .component);
+    defer world.unlockPointers(Position, .component);
+
+    const position = world.getPtr(entity, Position).?;
+    position.x += 1;
+}
+```
 
 ## Notes
 
