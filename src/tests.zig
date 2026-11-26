@@ -70,7 +70,8 @@ test "storage keeps values after growth" {
     }
 
     for (0..128) |i| {
-        const position = world.get(@intCast(i), Position).?;
+        const entity: ecs.Entity = @intCast(i);
+        const position = world.get(entity, Position).?;
         const value: f32 = @floatFromInt(i);
         try std.testing.expectEqual(value, position.x);
         try std.testing.expectEqual(-value, position.y);
@@ -297,24 +298,35 @@ test "identity stores one entity for type" {
     defer world.deinit();
 
     try std.testing.expectEqual(null, world.getIdentity(Player));
-    try std.testing.expectEqual(null, world.getByIdentity(Player, Position));
+    try std.testing.expect(!world.has(Player, Position));
+    try std.testing.expectEqual(null, world.get(Player, Position));
+    try std.testing.expectEqual(null, world.getPtr(Player, Position));
     try std.testing.expectEqual(null, world.takeIdentity(Player));
 
     const player = world.createIdentity(Player);
     try std.testing.expectEqual(player, world.getIdentity(Player).?);
-    try std.testing.expectEqual(null, world.getByIdentity(Player, Position));
+    try std.testing.expect(!world.has(Player, Position));
+    try std.testing.expectEqual(null, world.get(Player, Position));
     world.addMany(player, .{
         Player{},
         Position{ .x = 5 },
     });
 
     try std.testing.expectEqual(player, world.getIdentity(Player).?);
-    try std.testing.expectEqual(5, world.getByIdentity(Player, Position).?.x);
+    try std.testing.expect(world.has(Player, Position));
+    try std.testing.expectEqual(5, world.get(Player, Position).?.x);
+    world.getPtr(Player, Position).?.x = 9;
+    try std.testing.expectEqual(9, world.get(Player, Position).?.x);
+    try std.testing.expectEqual(9, world.take(Player, Position).?.x);
+    try std.testing.expect(!world.has(Player, Position));
+    try std.testing.expectEqual(null, world.take(Player, Position));
+    world.add(player, Position{ .x = 9 });
 
     const taken = world.takeIdentity(Player).?;
     try std.testing.expectEqual(player, taken);
     try std.testing.expectEqual(null, world.takeIdentity(Player));
-    try std.testing.expectEqual(null, world.getByIdentity(Player, Position));
+    try std.testing.expect(!world.has(Player, Position));
+    try std.testing.expectEqual(null, world.get(Player, Position));
 
     world.setIdentity(player, Player);
     world.removeIdentity(Player);

@@ -435,11 +435,6 @@ pub const World = struct {
         return if (map.identity == invalid) null else map.identity;
     }
 
-    pub fn getByIdentity(self: *const World, I: type, T: type) ?T {
-        const entity = self.getIdentity(I) orelse return null;
-        return self.get(entity, T);
-    }
-
     pub fn takeIdentity(self: *World, T: type) ?u16 {
         const map = self.store(T, .component) orelse return null;
         const entity = map.identity;
@@ -494,16 +489,23 @@ pub const World = struct {
         return self.map.getPtr(typeId(T, kind));
     }
 
-    pub fn has(self: *const World, entity: u16, T: type) bool {
+    fn resolveEntity(self: *const World, target: anytype) ?Entity {
+        if (@TypeOf(target) == type) return self.getIdentity(target);
+        return @as(Entity, target);
+    }
+
+    pub fn has(self: *const World, target: anytype, T: type) bool {
+        const entity = self.resolveEntity(target) orelse return false;
         const map = self.storeConst(T, .component) orelse return false;
         return hasEntity(map.sparse.items, entity);
     }
 
-    pub fn get(self: *const World, entity: u16, T: type) ?T {
-        return if (self.getPtr(entity, T)) |ptr| ptr.* else null;
+    pub fn get(self: *const World, target: anytype, T: type) ?T {
+        return if (self.getPtr(target, T)) |ptr| ptr.* else null;
     }
 
-    pub fn take(self: *World, entity: u16, T: type) ?T {
+    pub fn take(self: *World, target: anytype, T: type) ?T {
+        const entity = self.resolveEntity(target) orelse return null;
         const map = self.store(T, .component) orelse return null;
         if (!hasEntity(map.sparse.items, entity)) return null;
         const value = map.items(T)[map.sparse.items[entity]];
@@ -511,7 +513,8 @@ pub const World = struct {
         return value;
     }
 
-    pub fn getPtr(self: *const World, entity: u16, T: type) ?*T {
+    pub fn getPtr(self: *const World, target: anytype, T: type) ?*T {
+        const entity = self.resolveEntity(target) orelse return null;
         const map = self.storeConst(T, .component) orelse return null;
         if (!hasEntity(map.sparse.items, entity)) return null;
         return &map.items(T)[map.sparse.items[entity]];
