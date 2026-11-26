@@ -200,19 +200,24 @@ const Store = struct {
         self.sparse.pointer_stability.assertUnlocked();
         if (self.len <= 1 or self.valueSize == 0) return;
 
-        const sparse = self.sparse.items;
-        const dense = self.dense[0..self.len];
-        const v = self.items(T)[0..self.len];
-        for (1..v.len) |i| {
-            var j = i;
-            while (j > 0 and less(c, v[j], v[j - 1])) : (j -= 1) {
-                std.mem.swap(T, &v[j], &v[j - 1]);
-                const lhs = &dense[j];
-                const rhs = &dense[j - 1];
-                std.mem.swap(u16, lhs, rhs);
-                std.mem.swap(u16, &sparse[lhs.*], &sparse[rhs.*]);
-            }
+        const values = self.items(T)[0..self.len];
+        for (1..values.len) |i| if (less(c, values[i], values[i - 1]))
+            self.insert(T, c, less, i);
+    }
+
+    noinline fn insert(s: *Store, T: type, c: anytype, less: anytype, i: usize) void {
+        const sparse, const dense = .{ s.sparse.items, s.dense[0..s.len] };
+        const values = s.items(T)[0..s.len];
+        const value, const entity = .{ values[i], dense[i] };
+        var j = i - 1;
+        while (j > 0 and less(c, value, values[j - 1])) j -= 1;
+        var k = i;
+        while (k > j) : (k -= 1) {
+            values[k], dense[k] = .{ values[k - 1], dense[k - 1] };
+            sparse[dense[k]] = @intCast(k);
         }
+        values[j], dense[j] = .{ value, entity };
+        sparse[entity] = @intCast(j);
     }
 
     fn clear(self: *Store) void {
