@@ -287,7 +287,7 @@ var restored = try ecs.load(allocator, &reader);
 defer restored.deinit();
 ```
 
-快照仅供本机使用，不跨平台。指针和切片只保存引用信息，需要单独恢复。
+只读取同一构建生成的可信快照。指针和切片只保存引用信息，需要单独恢复。
 
 ## ID 冲突
 

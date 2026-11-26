@@ -296,7 +296,7 @@ var restored = try ecs.load(allocator, &reader);
 defer restored.deinit();
 ```
 
-Snapshots are for use on the same machine and platform. Pointers and slices
+Only load trusted snapshots produced by the same build. Pointers and slices
 store only reference information and must be restored separately.
 
 ## ID Conflict
