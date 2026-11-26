@@ -319,8 +319,9 @@ Lock the component, event, or resource store while using its pointers or slices.
 
 ```zig
 {
-    world.lockPointers(Position, .component);
-    defer world.unlockPointers(Position, .component);
+    const locked = world.lockPointers(Position, .component);
+    // Check locked if the store may be absent. Otherwise, unlock directly.
+    defer if (locked) world.unlockPointers(Position, .component);
 
     const position = world.getPtr(entity, Position).?;
     position.x += 1;

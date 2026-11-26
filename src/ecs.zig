@@ -322,9 +322,11 @@ pub const World = struct {
         return .{ .allocator = allocator };
     }
 
-    pub fn lockPointers(self: *World, T: type, comptime kind: Kind) void {
-        if (!std.debug.runtime_safety) return;
-        if (self.store(T, kind)) |map| map.sparse.lockPointers();
+    pub fn lockPointers(self: *World, T: type, comptime kind: Kind) bool {
+        if (!std.debug.runtime_safety) return false;
+        const map = self.store(T, kind) orelse return false;
+        map.sparse.lockPointers();
+        return true;
     }
 
     pub fn unlockPointers(self: *World, T: type, comptime kind: Kind) void {

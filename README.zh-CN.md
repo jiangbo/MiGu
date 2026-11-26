@@ -309,8 +309,9 @@ pub const migu_options: ecs.Options = .{ .debug_id = 7 };
 
 ```zig
 {
-    world.lockPointers(Position, .component);
-    defer world.unlockPointers(Position, .component);
+    const locked = world.lockPointers(Position, .component);
+    // 允许存储缺失时检查 locked，否则可直接解锁。
+    defer if (locked) world.unlockPointers(Position, .component);
 
     const position = world.getPtr(entity, Position).?;
     position.x += 1;

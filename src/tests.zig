@@ -89,15 +89,18 @@ test "storage keeps values after growth" {
     }
 }
 
-test "locking a missing component store leaves the query empty" {
+test "a missing component store can be created after an unsuccessful lock" {
     var world = ecs.World.init(std.testing.allocator);
     defer world.deinit();
 
-    world.lockPointers(Velocity, .component);
-    defer world.unlockPointers(Velocity, .component);
-    var query = world.query(.{Velocity});
-    try std.testing.expect(query.next() == null);
+    const locked = world.lockPointers(Velocity, .component);
+    defer if (locked) world.unlockPointers(Velocity, .component);
+    try std.testing.expect(!locked);
     try std.testing.expectEqual(0, world.stats().stores);
+
+    const entity = world.createEntity();
+    world.add(entity, Velocity{});
+    try std.testing.expect(world.has(entity, Velocity));
 }
 
 test "locked component pointers survive overwrites and map growth" {
@@ -107,13 +110,14 @@ test "locked component pointers survive overwrites and map growth" {
     const first = world.createEntity();
     world.add(first, Position{ .x = 1 });
 
-    world.lockPointers(Position, .component);
-    defer world.unlockPointers(Position, .component);
+    const locked = world.lockPointers(Position, .component);
+    defer if (locked) world.unlockPointers(Position, .component);
+    try std.testing.expectEqual(std.debug.runtime_safety, locked);
     const position = world.getPtr(first, Position).?;
 
     {
-        world.lockPointers(Position, .component);
-        defer world.unlockPointers(Position, .component);
+        const nested = world.lockPointers(Position, .component);
+        defer if (nested) world.unlockPointers(Position, .component);
         world.add(first, Position{ .x = 3 });
         world.add(first, Velocity{});
     }
@@ -484,8 +488,8 @@ test "resource is separate from component and holds one value" {
     try std.testing.expect(world.getResourcePtr(Clock) == null);
     world.addResource(Clock{ .hour = 9 });
     {
-        world.lockPointers(Clock, .resource);
-        defer world.unlockPointers(Clock, .resource);
+        const locked = world.lockPointers(Clock, .resource);
+        defer if (locked) world.unlockPointers(Clock, .resource);
         const clock = world.getResourcePtr(Clock).?;
         world.addResource(Clock{ .hour = 10 });
         try std.testing.expectEqual(clock, world.getResourcePtr(Clock).?);
